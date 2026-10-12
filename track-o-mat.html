@@ -21,6 +21,7 @@
     --tile2-pressed: #B4B4B4;
     --badge-other: #8A8A8A;
     --time: #222222;
+    --ok: #1B7F3B;
     --row-h: 62px;
     --app-h: 1024px;                /* Höhe des Layouts; wird beim Start an den Bildschirm angepasst */
   }
@@ -127,20 +128,46 @@
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
   }
-  .row, #thead {
+  .row, #thead, #thead-food {
     display: grid;
     grid-template-columns: 104px 104px 84px 1fr 84px;
     column-gap: 12px;
     align-items: center;
     padding: 0 16px;
   }
-  #thead {
+  #thead, #thead-food {
     flex: 0 0 26px;
     font-size: 14px;
     color: var(--muted);
     border-bottom: 1px solid var(--line);
   }
   #thead .c-platform { text-align: center; }
+
+  /* Ansicht "Restaurants": Elemente der jeweils anderen Ansicht ausblenden */
+  #app:not(.food) .only-food, #app.food .only-trains { display: none !important; }
+
+  .row.food, #thead-food { grid-template-columns: 148px 1fr 84px; }
+  .c-dist { text-align: right; font-size: 22px; color: var(--muted); white-space: nowrap; }
+  #thead-food .c-dist { font-size: 14px; }
+  .f-state { font-size: 22px; font-weight: 700; line-height: 25px; color: var(--muted); }
+  .f-state.open { color: var(--ok); }
+  .f-state.closed { color: var(--accent); }
+  .f-when, .f-kind {
+    font-size: 15px;
+    line-height: 19px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .f-name {
+    font-size: 26px;
+    line-height: 30px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .c-place { min-width: 0; }
   #rows {
     flex: 1 1 auto;
     min-height: 0;
@@ -244,7 +271,7 @@
   }
 
   /* ---------- Filter-Kacheln ---------- */
-  #filters {
+  #filters, #filters-food {
     flex: 0 0 104px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -264,6 +291,7 @@
   #filters.many .tile { font-size: 20px; line-height: 26px; }
   .tile.pressed { background: var(--tile-pressed); }
   .tile.active { background: var(--accent); }
+  .tile.disabled { opacity: 0.35; }
 
   /* ---------- Fusszeile ---------- */
   #footer {
@@ -426,17 +454,29 @@
     </div>
   </div>
 
-  <div class="section-label">Nächste Abfahrten</div>
+  <div class="section-label">
+    <span class="only-trains">Nächste Abfahrten</span>
+    <span class="only-food">Restaurants und Take-aways in der Nähe</span>
+  </div>
   <div id="board">
-    <div id="thead">
+    <div id="thead" class="only-trains">
       <div>Abfahrt</div><div></div><div>Linie</div><div>Ziel</div><div class="c-platform">Gleis</div>
+    </div>
+    <div id="thead-food" class="only-food">
+      <div>Jetzt</div><div>Lokal</div><div class="c-dist">Luftlinie</div>
     </div>
     <div id="rows"><div class="empty">Abfahrten werden geladen …</div></div>
   </div>
   <div id="status"><div id="status-text"></div></div>
 
   <div class="section-label">Filter</div>
-  <div id="filters"></div>
+  <div id="filters" class="only-trains"></div>
+  <div id="filters-food" class="only-food">
+    <div class="tile" id="food-open" data-food="open">Jetzt offen</div>
+    <div class="tile" id="food-all" data-food="all">Alle</div>
+    <div class="tile" id="food-prev" data-food="prev">‹ Zurück</div>
+    <div class="tile" id="food-next" data-food="next">Weiter ›</div>
+  </div>
 
   <div id="footer">
     <div class="foot-btn" data-action="help">
@@ -447,7 +487,12 @@
       <svg class="icon" viewBox="0 0 44 44"><path d="M8 13h28M8 22h28M8 31h28"/></svg>
       Info
     </div>
-    <div></div>
+    <div class="foot-btn" data-action="food" id="food-btn">
+      <svg class="icon only-trains" viewBox="0 0 44 44"><path d="M13 8v9a4 4 0 0 0 8 0V8M17 8v28M31 36V8c-4 3-6 8-6 15h6"/></svg>
+      <span class="only-trains">Restaurants</span>
+      <svg class="icon only-food" viewBox="0 0 44 44"><rect x="11" y="7" width="22" height="24" rx="3"/><path d="M11 20h22M17 26v.5M27 26v.5M16 31l-4 6M28 31l4 6"/></svg>
+      <span class="only-food">Abfahrten</span>
+    </div>
   </div>
 
   <!-- Overlay für Hilfe und Info -->
@@ -475,6 +520,7 @@
       <div class="note" style="padding-top:0;padding-bottom:12px">Live-Abfahrten am Bahnhof. Alle Angaben ohne Gewähr.</div>
       <div class="kv"><span>Station</span><span id="info-station"></span></div>
       <div class="kv"><span>Datenquelle</span><span>transport.opendata.ch</span></div>
+      <div class="kv"><span>Restaurants</span><span>© OpenStreetMap-Mitwirkende</span></div>
       <div class="kv"><span>Aktualisierung</span><span id="info-interval"></span></div>
       <div class="kv"><span>Nachtmodus</span><span id="info-night"></span></div>
       <div class="kv"><span>Letzte Aktualisierung</span><span id="info-last">–</span></div>
@@ -527,6 +573,18 @@
     mouseCursorHideSec: 5,                        // Mauszeiger nach … Sekunden ohne Mausbewegung ausblenden
     clockSweepSec: 58.5,                          // Bahnhofsuhr: Umlauf des Sekundenzeigers; den Rest der
                                                   // Minute wartet er oben, bis der Minutenzeiger springt
+    // Ansicht "Restaurants": Lokale im Umkreis des Bahnhofs aus OpenStreetMap.
+    // Die Daten holt kiosk.sh einmal pro Tag und legt sie als places.js neben diese Datei
+    // (der OSM-Dienst nimmt Anfragen direkt aus einer lokalen Seite nicht an). kiosk.sh
+    // liest lat, lon, radius und refreshAt aus diesem Block – Schreibweise beibehalten.
+    restaurants: {
+      enabled: true,                              // false = Knopf ausblenden
+      lat: 47.3913167, lon: 8.4893332,            // Bahnhof Zürich Altstetten
+      radius: 440,                                // Meter Luftlinie; reicht bis Cafe Bar Memo am Lindenplatz
+      refreshAt: '07:00',                         // kiosk.sh lädt die Liste einmal pro Tag ab dieser Zeit
+      types: ['restaurant', 'fast_food'],         // OSM "amenity": Restaurants und Take-aways
+      exclude: []                                 // Namen, die nicht erscheinen sollen
+    },
     fitToScreen: true,                            // Layout (768 breit) auf die Bildschirmgrösse skalieren,
                                                   // schmale Bildschirme füllt die Liste mit mehr Zeilen
                                                   // (false = 1:1 in 768×1024)
@@ -561,7 +619,8 @@
       'tile-pressed': '#2E2E2E',
       tile2: '#D6D6D6',
       'tile2-pressed': '#B4B4B4',
-      time: '#222222'
+      time: '#222222',
+      ok: '#1B7F3B'
     },
 
     // Nachtmodus: dunkles Farbschema, damit das Display den Raum nicht ausleuchtet
@@ -581,7 +640,8 @@
         'tile-pressed': '#707070',
         tile2: '#2A2A2A',
         'tile2-pressed': '#4A4A4A',
-        time: '#EAEAEA'
+        time: '#EAEAEA',
+        ok: '#3FA860'
       }
     }
   };
@@ -607,6 +667,14 @@
   var clockMinute = '';      // Minute (HH:MM), die die Bahnhofsuhr gerade zeigt
   var clockTimer = 0;
   var rowCount = 10;         // Anzahl Zeilen der Liste (wird in layout() bestimmt)
+  var view = 'trains';       // 'trains' (Abfahrten) oder 'food' (Restaurants)
+  var places = [];           // Lokale aus OpenStreetMap: { name, kind, cuisine, hours, dist }
+  var placesState = '';      // '', 'loading', 'ok' oder 'error'
+  var placesLoading = false;
+  var placesAt = 0;          // Stand der geladenen Daten (ms), von kiosk.sh gesetzt
+  var nextPlacesAt = 0;      // nächstes Nachsehen, ob places.js neuer ist
+  var foodFilter = 'open';   // 'open' (jetzt offen) oder 'all'
+  var foodPage = 0;
   var nightActive = null;    // aktuelles Farbschema (null = noch nicht gesetzt)
   var mouseActive = false;   // Mauszeiger sichtbar
   var lastMouseAt = 0;
@@ -718,6 +786,7 @@
 
   // Liste neu aufbauen – nur bei neuen Daten, Filterwechsel oder wenn ein Zug abgefahren ist
   function render() {
+    if (view === 'food') { renderFood(); return; }
     var now = Date.now();
     var list = visibleEntries(now);
     var frag = document.createDocumentFragment();
@@ -772,6 +841,7 @@
 
   // Nur die "in X min"-Texte anpassen; neu aufbauen nur, wenn sich die Zeilen ändern
   function refreshCountdown(now) {
+    if (view === 'food') { renderFood(); return; }   // Öffnungsstatus nachführen
     if (keyOf(visibleEntries(now)) !== shownKey) { render(); return; }
     for (var i = 0; i < shown.length; i++) {
       var t = countdownText(shown[i].entry, now);
@@ -783,12 +853,14 @@
 
   function updateStatus() {
     var last = lastOk ? hhmm(lastOk) : '';
-    elStatus.className = online ? '' : 'offline';
-    if (online) {
-      elStatusText.textContent = last ? 'Letzte Aktualisierung ' + last : '';
-    } else {
-      elStatusText.textContent = 'Keine Verbindung – ' +
-        (last ? 'letzte Aktualisierung ' + last : 'noch keine Daten');
+    if (view === 'trains') {
+      elStatus.className = online ? '' : 'offline';
+      if (online) {
+        elStatusText.textContent = last ? 'Letzte Aktualisierung ' + last : '';
+      } else {
+        elStatusText.textContent = 'Keine Verbindung – ' +
+          (last ? 'letzte Aktualisierung ' + last : 'noch keine Daten');
+      }
     }
     $('info-last').textContent = last || '–';
     $('info-conn').textContent = online ? 'in Ordnung' : 'unterbrochen';
@@ -948,16 +1020,259 @@
     elOverlay.classList.remove('open');
   }
 
+  /* ---------- Restaurants (OpenStreetMap) ---------- */
+  var DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  var DAYS_DE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  var CUISINE_DE = {
+    asian: 'Asiatisch', balkan: 'Balkan', bowl: 'Bowls', burger: 'Burger', chinese: 'Chinesisch',
+    falafel: 'Falafel', fine_dining: 'Gehobene Küche', greek: 'Griechisch', grill: 'Grill',
+    indian: 'Indisch', international: 'International', italian: 'Italienisch', japanese: 'Japanisch',
+    kebab: 'Kebab', meat: 'Fleisch', mexican: 'Mexikanisch', oriental: 'Orientalisch',
+    pizza: 'Pizza', pretzel: 'Brezel', ramen: 'Ramen', regional: 'Regional', sandwich: 'Sandwich',
+    sushi: 'Sushi', thai: 'Thai', tibetan: 'Tibetisch', turkish: 'Türkisch', wings: 'Chicken Wings'
+  };
+  var fmtStamp = new Intl.DateTimeFormat(CONFIG.locale, {
+    day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: CONFIG.timeZone
+  });
+  var fmtDayParts = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: CONFIG.timeZone
+  });
+
+  // Liest die gängigen Formen des OSM-Felds "opening_hours" (z. B.
+  // "Mo-Fr 11:00-14:00,17:30-22:00; Sa 17:00-23:00; Su off") in einen Wochenplan:
+  // pro Wochentag (0 = Montag) eine Liste [von, bis] in Minuten; "bis" über 1440 heisst
+  // nach Mitternacht. Unbekannte Schreibweisen ergeben null (= Öffnungszeiten unbekannt).
+  // Feiertage (PH) und Betriebsferien werden nicht berücksichtigt.
+  function parseHours(text) {
+    if (!text) return null;
+    var week = [[], [], [], [], [], [], []];
+    var str = String(text).replace(/"[^"]*"/g, '').trim();
+    if (!str) return null;
+    if (/^24\/7$/.test(str)) { for (var a = 0; a < 7; a++) week[a].push([0, 1440]); return week; }
+
+    var groups = str.split(';');
+    for (var g = 0; g < groups.length; g++) {
+      // Ein Komma nach einer Zeit und vor einem Wochentag trennt zusätzliche Regeln
+      var parts = groups[g].split(/(?<=\d|\+|off|closed)\s*,\s*(?=(?:Mo|Tu|We|Th|Fr|Sa|Su|PH)\b)/);
+      for (var q = 0; q < parts.length; q++) {
+        var part = parts[q].trim();
+        if (!part) continue;
+        var m = /^((?:(?:Mo|Tu|We|Th|Fr|Sa|Su|PH)(?:\s*-\s*(?:Mo|Tu|We|Th|Fr|Sa|Su))?\s*,?\s*)+)?(.*)$/.exec(part);
+        var days = [], sel = (m[1] || '').trim().replace(/,$/, ''), rest = m[2].trim();
+
+        if (!sel) { days = [0, 1, 2, 3, 4, 5, 6]; }
+        else {
+          var tokens = sel.split(',');
+          for (var t = 0; t < tokens.length; t++) {
+            var range = tokens[t].trim().split(/\s*-\s*/);
+            var from = DAYS.indexOf(range[0]), to = range.length > 1 ? DAYS.indexOf(range[1]) : from;
+            if (from < 0 || to < 0) continue;            // PH: nicht auswertbar
+            for (var d = from; ; d = (d + 1) % 7) { days.push(d); if (d === to) break; }
+          }
+          if (!days.length) continue;                    // Regel gilt nur für Feiertage
+        }
+
+        var spans = [];
+        rest = rest.replace(/^open\s*/, '');
+        if (!/^(off|closed)$/.test(rest)) {
+          if (!rest) return null;
+          var times = rest.split(',');
+          for (var k = 0; k < times.length; k++) {
+            var tm = /^(\d{1,2}):(\d{2})\s*(?:-\s*(\d{1,2}):(\d{2}))?(\+)?$/.exec(times[k].trim());
+            if (!tm || (!tm[3] && !tm[5])) return null;
+            var start = +tm[1] * 60 + +tm[2];
+            var end = tm[3] ? +tm[3] * 60 + +tm[4] : 1440;   // "17:00+" = Ende offen
+            if (end <= start) end += 1440;
+            spans.push([start, end]);
+          }
+        }
+        // Die erste Regel einer Gruppe ersetzt frühere Angaben für ihre Tage, weitere ergänzen
+        for (var i = 0; i < days.length; i++) {
+          if (q === 0) week[days[i]] = [];
+          week[days[i]] = week[days[i]].concat(spans);
+        }
+      }
+    }
+    return week;
+  }
+
+  function clockText(min) {
+    min = min % 1440;
+    return ('0' + Math.floor(min / 60)).slice(-2) + ':' + ('0' + min % 60).slice(-2);
+  }
+
+  // Status eines Lokals zum Zeitpunkt now: { state: 'open'|'closed'|'unknown', when: Text }
+  function openState(week, now) {
+    if (!week) return { state: 'unknown', when: '' };
+    var p = {}, parts = fmtDayParts.formatToParts(new Date(now));
+    for (var i = 0; i < parts.length; i++) p[parts[i].type] = parts[i].value;
+    var day = DAYS.indexOf(p.weekday.slice(0, 2)), min = +p.hour * 60 + +p.minute;
+    var s, spans = week[day], prev = week[(day + 6) % 7];
+
+    for (s = 0; s < prev.length; s++) {     // seit gestern über Mitternacht offen
+      if (min + 1440 >= prev[s][0] && min + 1440 < prev[s][1]) return { state: 'open', when: 'bis ' + clockText(prev[s][1]) };
+    }
+    for (s = 0; s < spans.length; s++) {
+      if (min >= spans[s][0] && min < spans[s][1]) return { state: 'open', when: 'bis ' + clockText(spans[s][1]) };
+    }
+    // Nächste Öffnung: heute später oder an einem der folgenden Tage
+    for (var off = 0; off <= 7; off++) {
+      var list = week[(day + off) % 7], best = -1;
+      for (s = 0; s < list.length; s++) {
+        if ((off > 0 || list[s][0] > min) && (best < 0 || list[s][0] < best)) best = list[s][0];
+      }
+      if (best >= 0) {
+        var label = off === 0 ? '' : off === 1 ? 'morgen ' : DAYS_DE[(day + off) % 7] + ' ';
+        return { state: 'closed', when: 'ab ' + label + clockText(best) };
+      }
+    }
+    return { state: 'closed', when: '' };
+  }
+
+  function kindText(pl) {
+    var out = [pl.kind === 'fast_food' ? 'Take-away' : 'Restaurant'];
+    var list = pl.cuisine ? pl.cuisine.split(';') : [];
+    for (var i = 0; i < list.length && i < 2; i++) {
+      var c = list[i].trim();
+      if (c) out.push(CUISINE_DE[c] || c.charAt(0).toUpperCase() + c.slice(1).replace(/_/g, ' '));
+    }
+    return out.join(' · ');
+  }
+
+  function distance(lat1, lon1, lat2, lon2) {
+    var rad = Math.PI / 180;
+    var x = (lon2 - lon1) * rad * Math.cos((lat1 + lat2) / 2 * rad), y = (lat2 - lat1) * rad;
+    return Math.round(6371000 * Math.sqrt(x * x + y * y));
+  }
+
+  function usePlaces(list) {
+    for (var i = 0; i < list.length; i++) list[i].week = parseHours(list[i].hours);
+    places = list;
+    placesState = 'ok';
+  }
+
+  // places.js einlesen (als Script, weil eine lokale Seite keine lokalen Dateien per fetch
+  // lesen darf). Die Datei ändert sich nur einmal pro Tag; alle 10 Minuten wird
+  // nachgesehen, ob kiosk.sh eine neuere abgelegt hat.
+  function loadPlaces() {
+    if (placesLoading) return;
+    placesLoading = true;
+    nextPlacesAt = Date.now() + 600000;
+    if (placesState !== 'ok') placesState = 'loading';
+
+    var R = CONFIG.restaurants, tag = document.createElement('script');
+    var done = function (ok) {
+      var raw = ok ? window.TRACKOMAT_PLACES : null;
+      window.TRACKOMAT_PLACES = null;
+      tag.remove();
+      placesLoading = false;
+      if (raw && raw.data && Array.isArray(raw.data.elements)) {
+        if (raw.at !== placesAt) {
+          var list = [];
+          for (var i = 0; i < raw.data.elements.length; i++) {
+            var e = raw.data.elements[i], t = e.tags || {}, c = e.center || e;
+            if (!t.name || R.types.indexOf(t.amenity) < 0 || R.exclude.indexOf(t.name) >= 0) continue;
+            if (t.access === 'private' || t.access === 'no') continue;
+            var dist = distance(R.lat, R.lon, c.lat, c.lon);
+            if (!(dist <= R.radius)) continue;
+            list.push({ name: t.name, kind: t.amenity, cuisine: t.cuisine || '', hours: t.opening_hours || '', dist: dist });
+          }
+          list.sort(function (a, b) { return a.dist - b.dist; });
+          placesAt = raw.at;
+          usePlaces(list);
+        }
+      } else if (placesState !== 'ok') {
+        placesState = 'error';
+      }
+      if (view === 'food') renderFood();
+    };
+    tag.onload = function () { done(true); };
+    tag.onerror = function () { done(false); };
+    tag.src = 'places.js?' + Date.now();
+    document.head.appendChild(tag);
+  }
+
+  // Liste der Lokale: offene zuerst, innerhalb davon nach Distanz; seitenweise geblättert
+  function renderFood() {
+    var now = Date.now(), list = [], i;
+    var openCount = 0;
+    for (i = 0; i < places.length; i++) {
+      var st = openState(places[i].week, now);
+      if (st.state === 'open') openCount++;
+      if (foodFilter === 'all' || st.state === 'open') list.push({ place: places[i], st: st });
+    }
+    var rank = { open: 0, closed: 1, unknown: 2 };
+    list.sort(function (a, b) { return rank[a.st.state] - rank[b.st.state] || a.place.dist - b.place.dist; });
+
+    var pages = Math.max(1, Math.ceil(list.length / rowCount));
+    if (foodPage >= pages) foodPage = pages - 1;
+    var frag = document.createDocumentFragment();
+
+    if (!list.length) {
+      frag.appendChild(el('div', 'empty',
+        placesState === 'ok' ? 'Zurzeit hat kein Lokal geöffnet'
+          : placesState === 'error' ? 'Restaurants konnten nicht geladen werden'
+          : 'Restaurants werden geladen …'));
+    }
+    for (i = foodPage * rowCount; i < list.length && i < (foodPage + 1) * rowCount; i++) {
+      var it = list[i], row = el('div', 'row food');
+      var cState = el('div');
+      cState.appendChild(el('div', 'f-state ' + it.st.state,
+        it.st.state === 'open' ? 'offen' : it.st.state === 'closed' ? 'geschlossen' : 'unbekannt'));
+      cState.appendChild(el('div', 'f-when', it.st.when || (it.st.state === 'unknown' ? 'keine Zeiten erfasst' : '')));
+      row.appendChild(cState);
+      var cPlace = el('div', 'c-place');
+      cPlace.appendChild(el('div', 'f-name', it.place.name));
+      cPlace.appendChild(el('div', 'f-kind', kindText(it.place)));
+      row.appendChild(cPlace);
+      row.appendChild(el('div', 'c-dist', it.place.dist + ' m'));
+      frag.appendChild(row);
+    }
+    elRows.replaceChildren(frag);
+    shown = [];
+    shownKey = '';
+    lastCountdownAt = now;
+
+    $('food-open').classList.toggle('active', foodFilter === 'open');
+    $('food-all').classList.toggle('active', foodFilter === 'all');
+    $('food-prev').classList.toggle('disabled', foodPage === 0);
+    $('food-next').classList.toggle('disabled', foodPage >= pages - 1);
+    elStatus.className = '';
+    elStatusText.textContent = placesState === 'ok'
+      ? openCount + ' von ' + places.length + ' offen · Seite ' + (foodPage + 1) + ' von ' + pages +
+        ' · Stand ' + fmtStamp.format(new Date(placesAt)) + ' · © OpenStreetMap-Mitwirkende'
+      : '';
+  }
+
+  function setView(next) {
+    if (next === view) return;
+    view = next;
+    foodFilter = 'open';
+    foodPage = 0;
+    $('app').classList.toggle('food', view === 'food');
+    if (view === 'food' && placesState !== 'ok') loadPlaces();
+    render();
+    updateStatus();
+  }
+
+  function onFood(action) {
+    if (action === 'open' || action === 'all') { foodFilter = action; foodPage = 0; }
+    else if (action === 'prev' && foodPage > 0) foodPage--;
+    else if (action === 'next') foodPage++;     // renderFood() begrenzt auf die letzte Seite
+    renderFood();
+  }
+
   /* ---------- Eingaben ---------- */
   function onAction(action) {
     if (action === 'help' || action === 'info') openOverlay(action);
     else if (action === 'close') closeOverlay();
     else if (action === 'refresh') { loadData(); closeOverlay(); }
     else if (action === 'reset') { setFilter(CONFIG.defaultFilter); closeOverlay(); }
+    else if (action === 'food') setView(view === 'food' ? 'trains' : 'food');
   }
 
   function touchTarget(node) {
-    return node && node.closest ? node.closest('[data-filter],[data-action]') : null;
+    return node && node.closest ? node.closest('[data-filter],[data-action],[data-food]') : null;
   }
   function clearPressed() {
     if (pressedEl) { pressedEl.classList.remove('pressed'); pressedEl = null; }
@@ -991,6 +1306,7 @@
       var t = touchTarget(ev.target);
       if (!t) return;
       if (t.hasAttribute('data-filter')) setFilter(t.getAttribute('data-filter'));
+      else if (t.hasAttribute('data-food')) onFood(t.getAttribute('data-food'));
       else onAction(t.getAttribute('data-action'));
     });
 
@@ -1015,6 +1331,7 @@
     updateClock(now);
 
     if (now >= nextFetchAt) loadData();
+    if (CONFIG.restaurants.enabled && now >= nextPlacesAt) loadPlaces();
     if (now - lastCountdownAt >= CONFIG.countdownSec * 1000) {
       lastCountdownAt = now;
       refreshCountdown(now);
@@ -1026,6 +1343,7 @@
     if (CONFIG.idleResetSec > 0 && now - lastTouchAt >= CONFIG.idleResetSec * 1000) {
       lastTouchAt = now;
       if (overlayMode) closeOverlay();
+      if (view !== 'trains') setView('trains');
       if (currentFilter !== CONFIG.defaultFilter) setFilter(CONFIG.defaultFilter);
     }
 
@@ -1077,6 +1395,7 @@
     bindInput();
     buildFilters();
     buildClockFace();
+    if (!CONFIG.restaurants.enabled) $('food-btn').style.display = 'none';
     updateClock(Date.now());
     updateStatus();
     loadData();

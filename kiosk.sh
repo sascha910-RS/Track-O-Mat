@@ -5,6 +5,7 @@
 #   kiosk.sh stop    Wartung: Neustart-Schleife anhalten und Chromium beenden
 #   kiosk.sh start   Kiosk wieder aktivieren (aus der grafischen Sitzung heraus)
 #   kiosk.sh status  Zustand anzeigen
+#   kiosk.sh places  Restaurantliste jetzt von OpenStreetMap holen (places.js)
 
 APP_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 URL="file://$APP_DIR/track-o-mat.html"
@@ -18,6 +19,56 @@ WARMUP_SEC=0                                       # einmaliger Neustart nach de
 
 BROWSER="$(command -v chromium || command -v chromium-browser)"
 
+# Restaurantliste: einmal pro Tag von OpenStreetMap holen und als places.js neben die
+# Seite legen. Die Seite kann das nicht selbst, weil der Dienst Anfragen aus einer lokalen
+# Datei ablehnt. Ort, Umkreis und Uhrzeit stehen im CONFIG von track-o-mat.html.
+PAGE="$APP_DIR/track-o-mat.html"
+PLACES_FILE="$APP_DIR/places.js"
+PLACES_APIS="https://overpass-api.de/api/interpreter https://overpass.private.coffee/api/interpreter"
+PLACES_AGENT="Track-O-Mat/1.0 (+https://github.com/sascha910-RS/Track-O-Mat)"
+
+page_value() {   # $1 = sed-Ausdruck, der den Wert aus dem CONFIG der Seite liefert
+  sed -n "$1" "$PAGE" | head -n 1
+}
+
+update_places() {
+  local lat lon radius query url tmp="$PLACES_FILE.tmp"
+  lat="$(page_value 's/^ *lat: *\([0-9.]*\), *lon: *[0-9.]*,.*/\1/p')"
+  lon="$(page_value 's/^ *lat: *[0-9.]*, *lon: *\([0-9.]*\),.*/\1/p')"
+  radius="$(page_value 's/^ *radius: *\([0-9]*\),.*/\1/p')"
+  if [ -z "$lat" ] || [ -z "$lon" ] || [ -z "$radius" ]; then
+    echo "Ort oder Umkreis im CONFIG von track-o-mat.html nicht gefunden." >&2
+    return 1
+  fi
+  # Etwas mehr Arten holen als nötig; welche erscheinen, entscheidet "types" in der Seite
+  query="[out:json][timeout:25];nwr[\"amenity\"~\"^(restaurant|fast_food|cafe|bar|pub|food_court)\$\"](around:$radius,$lat,$lon);out center tags;"
+  for url in $PLACES_APIS; do
+    if curl -sf -m 60 -G -A "$PLACES_AGENT" --data-urlencode "data=$query" "$url" -o "$tmp" \
+       && grep -q '"elements"' "$tmp"; then
+      { printf 'window.TRACKOMAT_PLACES = {"at": %s000, "data": ' "$(date +%s)"; cat "$tmp"; printf '};\n'; } > "$tmp.js" \
+        && mv "$tmp.js" "$PLACES_FILE"
+      rm -f "$tmp"
+      return 0
+    fi
+  done
+  rm -f "$tmp" "$tmp.js"
+  return 1
+}
+
+# Läuft neben dem Kiosk: holt die Liste, wenn sie fehlt, sonst einmal pro Tag ab der
+# refreshAt-Zeit. Nach einem Fehler folgt der nächste Versuch in 10 Minuten.
+places_loop() {
+  local at
+  while true; do
+    at="$(page_value "s/^ *refreshAt: *'\([0-9:]*\)'.*/\1/p")"
+    if [ ! -f "$PLACES_FILE" ] \
+       || { [ "$(date -r "$PLACES_FILE" +%F)" != "$(date +%F)" ] && [ ! "$(date +%H:%M)" \< "${at:-07:00}" ]; }; then
+      update_places || sleep 540
+    fi
+    sleep 60
+  done
+}
+
 loop_running() {
   [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
 }
@@ -26,7 +77,9 @@ run_loop() {
   if loop_running; then echo "Track-O-Mat-Kiosk läuft bereits."; exit 0; fi
   if [ -z "$BROWSER" ]; then echo "Chromium nicht gefunden." >&2; exit 1; fi
   echo $$ > "$PID_FILE"
-  trap 'rm -f "$PID_FILE"' EXIT
+  places_loop >/dev/null 2>&1 &
+  PLACES_PID=$!
+  trap 'kill "$PLACES_PID" 2>/dev/null; rm -f "$PID_FILE"' EXIT
   rm -f "$STOP_FLAG"
 
   # Mehrere --disable-features überschreiben sich gegenseitig -> alles in EINER Liste
@@ -102,12 +155,16 @@ case "${1:-run}" in
     nohup "$0" run >/dev/null 2>&1 &
     echo "Kiosk gestartet."
     ;;
+  places)
+    if update_places; then echo "Restaurantliste aktualisiert: $PLACES_FILE"
+    else echo "Restaurantliste konnte nicht geladen werden." >&2; exit 1; fi
+    ;;
   status)
     if loop_running; then echo "Kiosk läuft (PID $(cat "$PID_FILE"))."; else echo "Kiosk läuft nicht."; fi
     if [ -f "$STOP_FLAG" ]; then echo "Wartungsmodus aktiv."; fi
     ;;
   *)
-    echo "Aufruf: $0 {run|stop|start|status}" >&2
+    echo "Aufruf: $0 {run|stop|start|status|places}" >&2
     exit 2
     ;;
 esac

@@ -448,6 +448,31 @@ für einen Umlauf 58,5 Sekunden (`clockSweepSec`), wartet dann oben und läuft w
 sobald der Minutenzeiger zur vollen Minute springt. Die Zeigerfarben folgen dem
 Farbschema, im Nachtmodus ist das Zifferblatt dunkel.
 
+### Restaurants
+
+Rechts von «Info» öffnet der Knopf «Restaurants» eine Liste der Restaurants und
+Take-aways rund um den Bahnhof, mit Öffnungsstatus und Luftlinien-Distanz. Offene Lokale
+stehen zuerst; «Alle» zeigt auch die geschlossenen, mit «Zurück» und «Weiter» blättert
+man. Nach `idleResetSec` ohne Berührung springt die Anzeige zu den Abfahrten zurück.
+
+Die Daten stammen von OpenStreetMap. `kiosk.sh` holt sie einmal pro Tag ab 07:00 Uhr
+(`refreshAt`) und legt sie als `places.js` neben die Seite; fehlt die Datei, holt es sie
+sofort. War der Pi um 07:00 Uhr aus, folgt die Aktualisierung beim nächsten Start. Von
+Hand geht es mit:
+
+```bash
+~/track-o-mat/kiosk.sh places
+```
+
+Im Block `restaurants` des `CONFIG` stehen Bahnhofskoordinaten, Umkreis (`radius`, in
+Metern Luftlinie), die Arten (`types`) und eine Liste `exclude` für Lokale, die nicht
+erscheinen sollen (exakter Name). Nach einer Änderung von Ort oder Umkreis
+`kiosk.sh places` ausführen.
+
+Der Öffnungsstatus ist so gut wie die Angaben in OpenStreetMap: Lokale ohne erfasste
+Zeiten erscheinen als «unbekannt», Feiertage und Betriebsferien werden nicht
+berücksichtigt. Falsche Zeiten lassen sich auf openstreetmap.org korrigieren.
+
 ### Bildschirmauflösung
 
 Das Layout ist 768 Pixel breit und für das Hochformat gebaut. Mit `fitToScreen: true`
