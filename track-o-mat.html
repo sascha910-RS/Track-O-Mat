@@ -59,33 +59,54 @@
   /* ---------- Kopfzeile ---------- */
   #header {
     position: relative;
-    flex: 0 0 64px;
+    flex: 0 0 100px;
     background: var(--surface);
     border-bottom: 1px solid var(--line);
   }
   #brand {
     position: absolute;
     left: 16px; top: 0;
-    line-height: 64px;
+    line-height: 100px;
     font-size: 15px;
     color: var(--muted);
   }
   #station {
     position: absolute;
     left: 0; right: 0; top: 0;
-    line-height: 64px;
+    line-height: 100px;
     text-align: center;
     font-size: 28px;
     color: var(--accent);
   }
-  #clock {
+  #clock-date {
     position: absolute;
-    right: 16px; top: 13px;
+    right: 116px; top: 31px;
     text-align: right;
+    white-space: pre-line;
     font-size: 14px;
     line-height: 19px;
     color: var(--muted);
   }
+
+  /* ---------- Bahnhofsuhr ---------- */
+  /* Zifferblatt als SVG (statisch), Zeiger als eigene Ebenen: so bewegt der Browser den
+     Sekundenzeiger auf der Grafikkarte, ohne die Seite neu zu zeichnen */
+  #clock {
+    position: absolute;
+    right: 16px; top: 6px;
+    width: 88px; height: 88px;
+  }
+  #clock-face { display: block; width: 100%; height: 100%; }
+  #clock-face circle { fill: var(--surface); stroke: var(--muted); stroke-width: 1; }
+  #clock-face line { stroke: var(--time); }
+  .hand { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .hand::before, .hand::after { content: ""; position: absolute; }
+  #hand-hour::before { left: 46.8%; width: 6.4%; top: 18%; height: 44%; background: var(--time); }
+  #hand-min::before  { left: 47.4%; width: 5.2%; top: 4%;  height: 58%; background: var(--time); }
+  #hand-sec { will-change: transform; }
+  #hand-sec::before  { left: 49.3%; width: 1.4%; top: 19%; height: 47.5%; background: var(--accent); }
+  #hand-sec::after   { left: 44.75%; width: 10.5%; top: 13.75%; height: 10.5%; border-radius: 50%; background: var(--accent); }
+  @keyframes clock-sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
   /* ---------- Abschnittsbeschriftungen ---------- */
   .section-label {
@@ -133,13 +154,13 @@
   .time {
     font-size: 34px;
     font-weight: 600;
-    line-height: 34px;
+    line-height: 32px;
     color: var(--time);
   }
   .delay {
     font-size: 19px;
     font-weight: 700;
-    line-height: 20px;
+    line-height: 18px;
     color: var(--accent);
   }
   .c-in {
@@ -395,7 +416,13 @@
   <div id="header">
     <div id="brand">Track-O-Mat</div>
     <div id="station"></div>
-    <div id="clock"><div id="clock-date"></div><div id="clock-time"></div></div>
+    <div id="clock-date"></div>
+    <div id="clock">
+      <svg id="clock-face" viewBox="0 0 100 100"><circle cx="50" cy="50" r="49"/></svg>
+      <div class="hand" id="hand-hour"></div>
+      <div class="hand" id="hand-min"></div>
+      <div class="hand" id="hand-sec"></div>
+    </div>
   </div>
 
   <div class="section-label">Nächste Abfahrten</div>
@@ -496,6 +523,8 @@
     idleResetSec: 120,                            // ohne Berührung zurück auf Standardfilter (0 = aus)
     nightlyReload: '03:30',                       // Seite einmal pro Nacht neu laden ('' = aus)
     mouseCursorHideSec: 5,                        // Mauszeiger nach … Sekunden ohne Mausbewegung ausblenden
+    clockSweepSec: 58.5,                          // Bahnhofsuhr: Umlauf des Sekundenzeigers; den Rest der
+                                                  // Minute wartet er oben, bis der Minutenzeiger springt
     fitToScreen: true,                            // Layout (768×1024) auf die Bildschirmgrösse skalieren,
                                                   // z. B. Faktor 2 bei 1536×2048 (false = 1:1)
     timeZone: 'Europe/Zurich',
@@ -572,6 +601,8 @@
   var pressedEl = null;
   var overlayMode = '';      // '', 'help' oder 'info'
   var lastClock = '';
+  var clockMinute = '';      // Minute (HH:MM), die die Bahnhofsuhr gerade zeigt
+  var clockTimer = 0;
   var nightActive = null;    // aktuelles Farbschema (null = noch nicht gesetzt)
   var mouseActive = false;   // Mauszeiger sichtbar
   var lastMouseAt = 0;
@@ -587,8 +618,9 @@
   var fmtTime = new Intl.DateTimeFormat(CONFIG.locale, {
     hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: CONFIG.timeZone
   });
+  var fmtWeekday = new Intl.DateTimeFormat(CONFIG.locale, { weekday: 'long', timeZone: CONFIG.timeZone });
   var fmtDate = new Intl.DateTimeFormat(CONFIG.locale, {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: CONFIG.timeZone
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: CONFIG.timeZone
   });
   function hhmm(ms) { return fmtTime.format(new Date(ms)); }
 
@@ -779,12 +811,51 @@
 
   function updateClock(now) {
     var d = new Date(now);
-    var date = fmtDate.format(d), time = fmtTime.format(d);
+    var date = fmtWeekday.format(d) + '\n' + fmtDate.format(d), time = fmtTime.format(d);
+    // Sicherheitsnetz, falls der Minuten-Timer der Uhr ausfällt oder die Systemzeit springt
+    if (time !== clockMinute) syncClock();
     if (date + time === lastClock) return;
     lastClock = date + time;
     applyTheme(isNight(time));
     $('clock-date').textContent = date;
-    $('clock-time').textContent = time;
+  }
+
+  /* ---------- Bahnhofsuhr ---------- */
+  // 60 Minutenstriche; jeder fünfte ist ein längerer, dickerer Stundenstrich
+  function buildClockFace() {
+    var svg = $('clock-face'), ns = 'http://www.w3.org/2000/svg';
+    for (var i = 0; i < 60; i++) {
+      var hour = i % 5 === 0, mark = document.createElementNS(ns, 'line');
+      mark.setAttribute('x1', 50); mark.setAttribute('x2', 50);
+      mark.setAttribute('y1', 4); mark.setAttribute('y2', hour ? 16 : 7.5);
+      mark.setAttribute('stroke-width', hour ? 3.5 : 1.4);
+      mark.setAttribute('transform', 'rotate(' + i * 6 + ' 50 50)');
+      svg.appendChild(mark);
+    }
+  }
+
+  // Stellt die Zeiger und startet den Umlauf des Sekundenzeigers. Wie beim Original
+  // braucht er dafür nur clockSweepSec, wartet dann oben und läuft erst weiter, wenn der
+  // Minutenzeiger springt. Die Bewegung selbst ist eine CSS-Animation; das Script läuft
+  // nur einmal pro Minute.
+  function syncClock() {
+    var now = Date.now();
+    var time = hhmm(now), hm = time.split(':');
+    var h = +hm[0], m = +hm[1];
+    var msInMinute = now % 60000;    // Sekunden sind in jeder Zeitzone gleich
+    clockMinute = time;
+    $('hand-hour').style.transform = 'rotate(' + ((h % 12) * 30 + m * 0.5) + 'deg)';
+    $('hand-min').style.transform = 'rotate(' + m * 6 + 'deg)';
+
+    // Animation neu starten; die negative Verzögerung setzt sie auf die aktuelle Sekunde
+    var sec = $('hand-sec');
+    sec.style.animation = 'none';
+    void sec.offsetWidth;
+    sec.style.animation = 'clock-sweep ' + CONFIG.clockSweepSec * 1000 + 'ms linear ' +
+      (-msInMinute) + 'ms 1 both';
+
+    clearTimeout(clockTimer);
+    clockTimer = setTimeout(syncClock, 60000 - msInMinute + 10);
   }
 
   /* ---------- Daten laden ---------- */
@@ -992,6 +1063,7 @@
 
     bindInput();
     buildFilters();
+    buildClockFace();
     updateClock(Date.now());
     updateStatus();
     loadData();

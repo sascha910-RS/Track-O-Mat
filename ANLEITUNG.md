@@ -443,6 +443,11 @@ Am Anfang des Scripts in `track-o-mat.html` steht das Objekt `CONFIG`: Station,
 Abfrageintervall, Anzahl Zeilen, Filter, Rückfall auf «Alle» nach Inaktivität
 (`idleResetSec`, `0` = aus), nächtliches Neuladen (`nightlyReload`, `''` = aus) und Farben.
 
+Oben rechts läuft eine Uhr im Stil der Schweizer Bahnhofsuhr: Der Sekundenzeiger braucht
+für einen Umlauf 58,5 Sekunden (`clockSweepSec`), wartet dann oben und läuft weiter,
+sobald der Minutenzeiger zur vollen Minute springt. Die Zeigerfarben folgen dem
+Farbschema, im Nachtmodus ist das Zifferblatt dunkel.
+
 ### Bildschirmauflösung
 
 Das Layout ist für 768×1024 Pixel im Hochformat gebaut. Mit `fitToScreen: true`
