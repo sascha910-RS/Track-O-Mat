@@ -440,7 +440,7 @@ leerer Bildschirm. `Ctrl+Alt+T` öffnet dann ein Terminal.
 ## Einstellungen der App
 
 Am Anfang des Scripts in `track-o-mat.html` steht das Objekt `CONFIG`: Station,
-Abfrageintervall, Anzahl Zeilen, Filter, Rückfall auf «Alle» nach Inaktivität
+Abfrageintervall, Filter, Rückfall auf «Alle» nach Inaktivität
 (`idleResetSec`, `0` = aus), nächtliches Neuladen (`nightlyReload`, `''` = aus) und Farben.
 
 Oben rechts läuft eine Uhr im Stil der Schweizer Bahnhofsuhr: Der Sekundenzeiger braucht
@@ -450,17 +450,24 @@ Farbschema, im Nachtmodus ist das Zifferblatt dunkel.
 
 ### Bildschirmauflösung
 
-Das Layout ist für 768×1024 Pixel im Hochformat gebaut. Mit `fitToScreen: true`
-(Voreinstellung) skaliert die Seite es als Ganzes auf die Bildschirmgrösse, ohne es zu
-verzerren. Auf einem Display mit 2048×1536 Pixeln, das hochkant betrieben wird
-(1536×2048), ergibt das genau Faktor 2 und füllt den Bildschirm vollständig. Bei einem
-anderen Seitenverhältnis bleibt rechts oder unten ein Rand in der Hintergrundfarbe.
+Das Layout ist 768 Pixel breit und für das Hochformat gebaut. Mit `fitToScreen: true`
+(Voreinstellung) skaliert die Seite es als Ganzes auf die Bildschirmbreite, ohne es zu
+verzerren, und nutzt die ganze Höhe: Je höher der Bildschirm im Verhältnis zur Breite,
+desto mehr Abfahrten zeigt die Liste.
+
+| Display (hochkant betrieben) | Skalierung | Zeilen |
+|---|---|---|
+| 1440×900 → 900×1440 | 1,17 | 13 |
+| 2048×1536 → 1536×2048 | 2 | 10 |
+
+Die Zeilenzahl ergibt sich aus `rowHeight` (Mindesthöhe einer Zeile, voreingestellt 58).
+Eine feste Anzahl erzwingst du mit `maxRows` (z. B. `10`; `0` = automatisch). Auf einem
+Bildschirm im Querformat bleibt rechts ein Rand in der Hintergrundfarbe.
 
 Die Drehung ins Hochformat geschieht im System (Schritt 4), nicht in der App. Mit
 `fitToScreen: false` wird das Layout 1:1 in 768×1024 Pixeln oben links angezeigt.
 
-Der Pi 4 gibt über HDMI bis 4K aus; 2048×1536 mit 60 Hz liegt klar darunter. Die
-tatsächliche Auflösung zeigt `wlr-randr` (Wayland) bzw. `xrandr` (X11).
+Die tatsächliche Auflösung zeigt `wlr-randr` (Wayland) bzw. `xrandr` (X11).
 
 Die API von transport.opendata.ch erlaubt eine begrenzte Zahl Abfragen pro Tag. Mit
 30 Sekunden Intervall sind es 2880 pro Tag; das Intervall deshalb nicht stark verkürzen.

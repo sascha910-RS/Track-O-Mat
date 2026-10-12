@@ -22,13 +22,14 @@
     --badge-other: #8A8A8A;
     --time: #222222;
     --row-h: 62px;
+    --app-h: 1024px;                /* Höhe des Layouts; wird beim Start an den Bildschirm angepasst */
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
     width: 768px;
-    height: 1024px;
+    height: var(--app-h);
     overflow: hidden;
     background: var(--bg);
     color: var(--text);
@@ -50,7 +51,7 @@
     position: absolute;
     left: 0; top: 0;
     width: 768px;
-    height: 1024px;
+    height: var(--app-h);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -298,7 +299,7 @@
     position: absolute;
     left: 0; top: 0;
     width: 768px;
-    height: 1024px;
+    height: var(--app-h);
     background: var(--bg);
     flex-direction: column;
   }
@@ -516,7 +517,8 @@
     refreshSec: 30,                               // Daten neu laden alle … Sekunden
     countdownSec: 15,                             // "in X min" aktualisieren alle … Sekunden
     fetchTimeoutSec: 15,                          // Abbruch einer hängenden Abfrage
-    maxRows: 10,                                  // Zeilen, die ohne Scrollen Platz haben (10–12)
+    maxRows: 0,                                   // Anzahl Zeilen; 0 = so viele, wie bei rowHeight Platz haben
+    rowHeight: 58,                                // Mindesthöhe einer Zeile in Layout-Pixeln (bei maxRows: 0)
     minDelayMin: 1,                               // Verspätung ab … Minuten anzeigen
     runMin: 3,                                    // bis … Minuten vor tatsächlicher Abfahrt (inkl. Verspätung) Hinweis zeigen (0 = aus)
     runText: 'rennen :-)',
@@ -525,8 +527,9 @@
     mouseCursorHideSec: 5,                        // Mauszeiger nach … Sekunden ohne Mausbewegung ausblenden
     clockSweepSec: 58.5,                          // Bahnhofsuhr: Umlauf des Sekundenzeigers; den Rest der
                                                   // Minute wartet er oben, bis der Minutenzeiger springt
-    fitToScreen: true,                            // Layout (768×1024) auf die Bildschirmgrösse skalieren,
-                                                  // z. B. Faktor 2 bei 1536×2048 (false = 1:1)
+    fitToScreen: true,                            // Layout (768 breit) auf die Bildschirmgrösse skalieren,
+                                                  // schmale Bildschirme füllt die Liste mit mehr Zeilen
+                                                  // (false = 1:1 in 768×1024)
     timeZone: 'Europe/Zurich',
     locale: 'de-CH',
 
@@ -603,6 +606,7 @@
   var lastClock = '';
   var clockMinute = '';      // Minute (HH:MM), die die Bahnhofsuhr gerade zeigt
   var clockTimer = 0;
+  var rowCount = 10;         // Anzahl Zeilen der Liste (wird in layout() bestimmt)
   var nightActive = null;    // aktuelles Farbschema (null = noch nicht gesetzt)
   var mouseActive = false;   // Mauszeiger sichtbar
   var lastMouseAt = 0;
@@ -683,10 +687,10 @@
     return true;
   }
 
-  // Sichtbare Abfahrten: nicht abgefahren, zum Filter passend, auf maxRows begrenzt
+  // Sichtbare Abfahrten: nicht abgefahren, zum Filter passend, auf rowCount begrenzt
   function visibleEntries(now) {
     var out = [];
-    for (var i = 0; i < entries.length && out.length < CONFIG.maxRows; i++) {
+    for (var i = 0; i < entries.length && out.length < rowCount; i++) {
       var e = entries[i];
       if (e.real >= now && matchesFilter(e)) out.push(e);
     }
@@ -1031,12 +1035,26 @@
     }
   }
 
-  // Das Layout ist fest 768×1024 gebaut; auf grösseren oder kleineren Bildschirmen wird
-  // es als Ganzes skaliert, sodass es ohne Verzerrung möglichst viel Fläche füllt
-  function fitToScreen() {
-    if (!CONFIG.fitToScreen) return;
-    var scale = Math.min(window.innerWidth / 768, window.innerHeight / 1024);
-    if (scale > 0) document.documentElement.style.zoom = scale;
+  // Das Layout ist 768 Pixel breit und mindestens 1024 hoch gebaut. Es wird als Ganzes
+  // auf den Bildschirm skaliert; ist dieser schmaler als 3:4 (z. B. 900×1440), wächst die
+  // Höhe mit, und die Abfahrtsliste nutzt den zusätzlichen Platz für mehr Zeilen.
+  function layout() {
+    var root = document.documentElement, scale = 1, appH = 1024;
+    if (CONFIG.fitToScreen) {
+      scale = Math.min(window.innerWidth / 768, window.innerHeight / 1024);
+      if (scale > 0) appH = Math.max(1024, Math.floor(window.innerHeight / scale));
+      else scale = 1;
+    }
+
+    // Unskaliert ausmessen, damit Zeilenzahl und -höhe im Grundlayout berechnet werden
+    root.style.zoom = 1;
+    root.style.setProperty('--app-h', appH + 'px');
+    var avail = elRows.clientHeight;
+    rowCount = CONFIG.maxRows > 0 ? CONFIG.maxRows
+             : Math.max(1, Math.floor(avail / CONFIG.rowHeight));
+    var rowH = Math.floor(avail / rowCount);
+    if (rowH > 0) root.style.setProperty('--row-h', rowH + 'px');
+    root.style.zoom = scale;
   }
 
   /* ---------- Start ---------- */
@@ -1053,13 +1071,8 @@
         ? 'Der Filter springt nach ' + Math.round(CONFIG.idleResetSec / 60) + ' Minuten ohne Berührung auf «Alle» zurück.'
         : '');
 
-    // Zeilenhöhe so wählen, dass genau maxRows Zeilen in die Liste passen
-    var rowH = Math.floor(elRows.clientHeight / CONFIG.maxRows);
-    if (rowH > 0) document.documentElement.style.setProperty('--row-h', rowH + 'px');
-
-    // Erst nach dem Ausmessen skalieren, damit die Zeilenhöhe im Grundlayout berechnet wird
-    fitToScreen();
-    window.addEventListener('resize', fitToScreen);
+    layout();
+    window.addEventListener('resize', function () { layout(); render(); });
 
     bindInput();
     buildFilters();
