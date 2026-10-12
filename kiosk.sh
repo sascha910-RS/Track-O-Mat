@@ -40,8 +40,9 @@ update_places() {
     echo "Ort oder Umkreis im CONFIG von track-o-mat.html nicht gefunden." >&2
     return 1
   fi
-  # Etwas mehr Arten holen als nötig; welche erscheinen, entscheidet "types" in der Seite
-  query="[out:json][timeout:25];nwr[\"amenity\"~\"^(restaurant|fast_food|cafe|bar|pub|food_court)\$\"](around:$radius,$lat,$lon);out center tags;"
+  # Etwas mehr Arten und 150 m mehr Umkreis holen als nötig; was erscheint, entscheiden
+  # "types", "radius" und "include" in der Seite
+  query="[out:json][timeout:25];nwr[\"amenity\"~\"^(restaurant|fast_food|cafe|bar|pub|food_court)\$\"](around:$((radius + 150)),$lat,$lon);out center tags;"
   for url in $PLACES_APIS; do
     if curl -sf -m 60 -G -A "$PLACES_AGENT" --data-urlencode "data=$query" "$url" -o "$tmp" \
        && grep -q '"elements"' "$tmp"; then

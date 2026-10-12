@@ -465,8 +465,10 @@ Hand geht es mit:
 ```
 
 Im Block `restaurants` des `CONFIG` stehen Bahnhofskoordinaten, Umkreis (`radius`, in
-Metern Luftlinie), die Arten (`types`) und eine Liste `exclude` für Lokale, die nicht
-erscheinen sollen (exakter Name). Nach einer Änderung von Ort oder Umkreis
+Metern Luftlinie) und die Arten (`types`). Drei Listen verwenden den exakten Namen aus
+OpenStreetMap: `include` zeigt ein Lokal immer, auch bis 150 Meter ausserhalb des
+Umkreises; `exclude` blendet eines aus; `rename` gibt ihm einen anderen Anzeigenamen
+(so erscheint «Cafe Bar Memo» als «Memo Döner»). Nach einer Änderung von Ort oder Umkreis
 `kiosk.sh places` ausführen.
 
 Der Öffnungsstatus ist so gut wie die Angaben in OpenStreetMap: Lokale ohne erfasste

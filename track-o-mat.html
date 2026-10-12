@@ -577,13 +577,16 @@
     // Die Daten holt kiosk.sh einmal pro Tag und legt sie als places.js neben diese Datei
     // (der OSM-Dienst nimmt Anfragen direkt aus einer lokalen Seite nicht an). kiosk.sh
     // liest lat, lon, radius und refreshAt aus diesem Block – Schreibweise beibehalten.
+    // include, exclude und rename verwenden den exakten Namen aus OpenStreetMap.
     restaurants: {
       enabled: true,                              // false = Knopf ausblenden
       lat: 47.3913167, lon: 8.4893332,            // Bahnhof Zürich Altstetten
       radius: 440,                                // Meter Luftlinie; reicht bis Cafe Bar Memo am Lindenplatz
       refreshAt: '07:00',                         // kiosk.sh lädt die Liste einmal pro Tag ab dieser Zeit
       types: ['restaurant', 'fast_food'],         // OSM "amenity": Restaurants und Take-aways
-      exclude: []                                 // Namen, die nicht erscheinen sollen
+      include: ['Cafe Bar Memo'],                 // immer zeigen, auch knapp ausserhalb des Umkreises
+      exclude: [],                                // Namen, die nicht erscheinen sollen
+      rename: { 'Cafe Bar Memo': 'Memo Döner' }   // Anzeigename statt des Namens in OSM
     },
     fitToScreen: true,                            // Layout (768 breit) auf die Bildschirmgrösse skalieren,
                                                   // schmale Bildschirme füllt die Liste mit mehr Zeilen
@@ -1174,8 +1177,8 @@
             if (!t.name || R.types.indexOf(t.amenity) < 0 || R.exclude.indexOf(t.name) >= 0) continue;
             if (t.access === 'private' || t.access === 'no') continue;
             var dist = distance(R.lat, R.lon, c.lat, c.lon);
-            if (!(dist <= R.radius)) continue;
-            list.push({ name: t.name, kind: t.amenity, cuisine: t.cuisine || '', hours: t.opening_hours || '', dist: dist });
+            if (!(dist <= R.radius) && R.include.indexOf(t.name) < 0) continue;
+            list.push({ name: R.rename[t.name] || t.name, kind: t.amenity, cuisine: t.cuisine || '', hours: t.opening_hours || '', dist: dist });
           }
           list.sort(function (a, b) { return a.dist - b.dist; });
           placesAt = raw.at;
