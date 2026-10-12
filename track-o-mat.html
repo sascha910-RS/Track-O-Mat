@@ -519,12 +519,14 @@
       <div class="about-name">Track-O-Mat</div>
       <div class="note" style="padding-top:0;padding-bottom:12px">Live-Abfahrten am Bahnhof. Alle Angaben ohne Gewähr.</div>
       <div class="kv"><span>Station</span><span id="info-station"></span></div>
-      <div class="kv"><span>Datenquelle</span><span>transport.opendata.ch</span></div>
-      <div class="kv"><span>Restaurants</span><span>© OpenStreetMap-Mitwirkende</span></div>
-      <div class="kv"><span>Aktualisierung</span><span id="info-interval"></span></div>
       <div class="kv"><span>Nachtmodus</span><span id="info-night"></span></div>
-      <div class="kv"><span>Letzte Aktualisierung</span><span id="info-last">–</span></div>
-      <div class="kv" style="border-bottom:0"><span>Verbindung</span><span id="info-conn">–</span></div>
+      <div class="kv"><span>Abfahrten: Datenquelle</span><span>transport.opendata.ch</span></div>
+      <div class="kv"><span>Abfahrten: Intervall</span><span id="info-interval"></span></div>
+      <div class="kv"><span>Abfahrten: Stand</span><span id="info-last">–</span></div>
+      <div class="kv"><span>Abfahrten: Verbindung</span><span id="info-conn">–</span></div>
+      <div class="kv only-places"><span>Restaurants: Datenquelle</span><span>© OpenStreetMap-Mitwirkende</span></div>
+      <div class="kv only-places"><span>Restaurants: Intervall</span><span id="info-places-interval"></span></div>
+      <div class="kv only-places" style="border-bottom:0"><span>Restaurants: Stand</span><span id="info-places-last">–</span></div>
     </div>
 
     <div id="actions">
@@ -869,6 +871,8 @@
       }
     }
     $('info-last').textContent = last || '–';
+    $('info-places-last').textContent = placesAt ? fmtStamp.format(new Date(placesAt)) + ' Uhr'
+      : placesState === 'error' ? 'noch keine Daten' : '–';
     $('info-conn').textContent = online ? 'in Ordnung' : 'unterbrochen';
   }
 
@@ -1194,6 +1198,7 @@
         placesState = 'error';
       }
       if (view === 'food') renderFood();
+      updateStatus();
     };
     tag.onload = function () { done(true); };
     tag.onerror = function () { done(false); };
@@ -1393,6 +1398,7 @@
     $('station').textContent = CONFIG.station;
     $('info-station').textContent = CONFIG.station;
     $('info-interval').textContent = 'alle ' + CONFIG.refreshSec + ' Sekunden';
+    $('info-places-interval').textContent = 'einmal täglich ab ' + CONFIG.restaurants.refreshAt + ' Uhr';
     $('help-note').textContent = CONFIG.appName + ' – Daten: transport.opendata.ch. ' +
       (CONFIG.idleResetSec > 0
         ? 'Der Filter springt nach ' + Math.round(CONFIG.idleResetSec / 60) + ' Minuten ohne Berührung auf «Alle» zurück.'
@@ -1404,7 +1410,11 @@
     bindInput();
     buildFilters();
     buildClockFace();
-    if (!CONFIG.restaurants.enabled) $('food-btn').style.display = 'none';
+    if (!CONFIG.restaurants.enabled) {
+      $('food-btn').style.display = 'none';
+      var rows = document.querySelectorAll('.only-places');
+      for (var i = 0; i < rows.length; i++) rows[i].style.display = 'none';
+    }
     updateClock(Date.now());
     updateStatus();
     loadData();
