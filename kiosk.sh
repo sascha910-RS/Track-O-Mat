@@ -32,7 +32,7 @@ page_value() {   # $1 = sed-Ausdruck, der den Wert aus dem CONFIG der Seite lief
 }
 
 update_places() {
-  local lat lon radius query url tmp="$PLACES_FILE.tmp"
+  local lat lon radius names extra query url tmp="$PLACES_FILE.tmp"
   lat="$(page_value 's/^ *lat: *\([0-9.]*\), *lon: *[0-9.]*,.*/\1/p')"
   lon="$(page_value 's/^ *lat: *[0-9.]*, *lon: *\([0-9.]*\),.*/\1/p')"
   radius="$(page_value 's/^ *radius: *\([0-9]*\),.*/\1/p')"
@@ -40,12 +40,19 @@ update_places() {
     echo "Ort oder Umkreis im CONFIG von track-o-mat.html nicht gefunden." >&2
     return 1
   fi
+  # include: ['A', 'B'] -> A|B; diese Lokale werden per Name bis 3 km weit gesucht
+  names="$(page_value "s/^ *include: *\[\(.*\)\],.*/\1/p" | sed "s/[\"'] *, *[\"']/|/g; s/^ *[\"']//; s/[\"'] *\$//; s/\"/\\\\\"/g")"
+  extra=""
+  if [ -n "$names" ]; then
+    extra="nwr[\"amenity\"][\"name\"~\"^($names)\$\"](around:3000,$lat,$lon);"
+  fi
   # Etwas mehr Arten und 150 m mehr Umkreis holen als nötig; was erscheint, entscheiden
   # "types", "radius" und "include" in der Seite
-  query="[out:json][timeout:25];nwr[\"amenity\"~\"^(restaurant|fast_food|cafe|bar|pub|food_court)\$\"](around:$((radius + 150)),$lat,$lon);out center tags;"
+  query="[out:json][timeout:40];(nwr[\"amenity\"~\"^(restaurant|fast_food|cafe|bar|pub|food_court)\$\"](around:$((radius + 150)),$lat,$lon);$extra);out center tags;"
   for url in $PLACES_APIS; do
-    if curl -sf -m 60 -G -A "$PLACES_AGENT" --data-urlencode "data=$query" "$url" -o "$tmp" \
-       && grep -q '"elements"' "$tmp"; then
+    # Bei Überlast antwortet der Dienst mit einer leeren Liste und einem "remark": nicht übernehmen
+    if curl -sf -m 70 -G -A "$PLACES_AGENT" --data-urlencode "data=$query" "$url" -o "$tmp" \
+       && grep -q '"elements"' "$tmp" && ! grep -q '"remark"' "$tmp"; then
       { printf 'window.TRACKOMAT_PLACES = {"at": %s000, "data": ' "$(date +%s)"; cat "$tmp"; printf '};\n'; } > "$tmp.js" \
         && mv "$tmp.js" "$PLACES_FILE"
       rm -f "$tmp"

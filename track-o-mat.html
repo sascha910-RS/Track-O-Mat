@@ -576,17 +576,20 @@
     // Ansicht "Restaurants": Lokale im Umkreis des Bahnhofs aus OpenStreetMap.
     // Die Daten holt kiosk.sh einmal pro Tag und legt sie als places.js neben diese Datei
     // (der OSM-Dienst nimmt Anfragen direkt aus einer lokalen Seite nicht an). kiosk.sh
-    // liest lat, lon, radius und refreshAt aus diesem Block – Schreibweise beibehalten.
-    // include, exclude und rename verwenden den exakten Namen aus OpenStreetMap.
+    // liest lat, lon, radius, refreshAt und include aus diesem Block – Schreibweise beibehalten
+    // (include auf einer Zeile). include, exclude, rename und hours verwenden den exakten
+    // Namen aus OpenStreetMap.
     restaurants: {
       enabled: true,                              // false = Knopf ausblenden
       lat: 47.3913167, lon: 8.4893332,            // Bahnhof Zürich Altstetten
       radius: 440,                                // Meter Luftlinie; reicht bis Cafe Bar Memo am Lindenplatz
       refreshAt: '07:00',                         // kiosk.sh lädt die Liste einmal pro Tag ab dieser Zeit
       types: ['restaurant', 'fast_food'],         // OSM "amenity": Restaurants und Take-aways
-      include: ['Cafe Bar Memo'],                 // immer zeigen, auch knapp ausserhalb des Umkreises
+      include: ['Cafe Bar Memo', 'Pizza Züri'],   // immer zeigen, auch ausserhalb des Umkreises (bis 3 km)
       exclude: [],                                // Namen, die nicht erscheinen sollen
-      rename: { 'Cafe Bar Memo': 'Memo Döner' }   // Anzeigename statt des Namens in OSM
+      rename: { 'Cafe Bar Memo': 'Memo Döner' },  // Anzeigename statt des Namens in OSM
+      hours: {}                                   // Öffnungszeiten von Hand, wenn sie in OSM fehlen oder falsch
+                                                  // sind, z. B. { 'Pizza Züri': 'Mo-Sa 11:00-14:00,17:00-23:00' }
     },
     fitToScreen: true,                            // Layout (768 breit) auf die Bildschirmgrösse skalieren,
                                                   // schmale Bildschirme füllt die Liste mit mehr Zeilen
@@ -1174,11 +1177,14 @@
           var list = [];
           for (var i = 0; i < raw.data.elements.length; i++) {
             var e = raw.data.elements[i], t = e.tags || {}, c = e.center || e;
-            if (!t.name || R.types.indexOf(t.amenity) < 0 || R.exclude.indexOf(t.name) >= 0) continue;
-            if (t.access === 'private' || t.access === 'no') continue;
+            if (!t.name || R.exclude.indexOf(t.name) >= 0) continue;
             var dist = distance(R.lat, R.lon, c.lat, c.lon);
-            if (!(dist <= R.radius) && R.include.indexOf(t.name) < 0) continue;
-            list.push({ name: R.rename[t.name] || t.name, kind: t.amenity, cuisine: t.cuisine || '', hours: t.opening_hours || '', dist: dist });
+            if (R.include.indexOf(t.name) < 0) {
+              if (R.types.indexOf(t.amenity) < 0 || !(dist <= R.radius)) continue;
+              if (t.access === 'private' || t.access === 'no') continue;
+            }
+            list.push({ name: R.rename[t.name] || t.name, kind: t.amenity, cuisine: t.cuisine || '',
+                        hours: R.hours[t.name] || t.opening_hours || '', dist: dist });
           }
           list.sort(function (a, b) { return a.dist - b.dist; });
           placesAt = raw.at;

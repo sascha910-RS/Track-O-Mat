@@ -457,7 +457,9 @@ man. Nach `idleResetSec` ohne Berührung springt die Anzeige zu den Abfahrten zu
 
 Die Daten stammen von OpenStreetMap. `kiosk.sh` holt sie einmal pro Tag ab 07:00 Uhr
 (`refreshAt`) und legt sie als `places.js` neben die Seite; fehlt die Datei, holt es sie
-sofort. War der Pi um 07:00 Uhr aus, folgt die Aktualisierung beim nächsten Start. Von
+sofort. War der Pi um 07:00 Uhr aus, folgt die Aktualisierung beim nächsten Start. Der
+Dienst ist zeitweise überlastet; dann bleibt die bisherige Liste stehen, und das Skript
+versucht es alle 10 Minuten erneut. Von
 Hand geht es mit:
 
 ```bash
@@ -465,11 +467,18 @@ Hand geht es mit:
 ```
 
 Im Block `restaurants` des `CONFIG` stehen Bahnhofskoordinaten, Umkreis (`radius`, in
-Metern Luftlinie) und die Arten (`types`). Drei Listen verwenden den exakten Namen aus
-OpenStreetMap: `include` zeigt ein Lokal immer, auch bis 150 Meter ausserhalb des
-Umkreises; `exclude` blendet eines aus; `rename` gibt ihm einen anderen Anzeigenamen
-(so erscheint «Cafe Bar Memo» als «Memo Döner»). Nach einer Änderung von Ort oder Umkreis
-`kiosk.sh places` ausführen.
+Metern Luftlinie) und die Arten (`types`). Vier Einstellungen verwenden den exakten
+Namen aus OpenStreetMap:
+
+- `include` zeigt ein Lokal immer, auch weit ausserhalb des Umkreises (bis 3 km).
+- `exclude` blendet eines aus.
+- `rename` gibt ihm einen anderen Anzeigenamen (so erscheint «Cafe Bar Memo» als
+  «Memo Döner»).
+- `hours` setzt die Öffnungszeiten von Hand, wenn sie in OpenStreetMap fehlen oder
+  falsch sind, in derselben Schreibweise wie dort, z. B.
+  `'Mo-Fr 11:00-14:00,17:00-23:00; Sa 17:00-23:00'`.
+
+Nach einer Änderung von Ort, Umkreis oder `include` `kiosk.sh places` ausführen.
 
 Der Öffnungsstatus ist so gut wie die Angaben in OpenStreetMap: Lokale ohne erfasste
 Zeiten erscheinen als «unbekannt», Feiertage und Betriebsferien werden nicht
