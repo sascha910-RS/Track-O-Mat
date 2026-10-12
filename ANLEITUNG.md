@@ -207,6 +207,21 @@ Mausbewegung wieder erscheinen. Mit `-idle 0` wäre eine Maus kaum benutzbar.
 `kiosk.sh run` startet Chromium und startet ihn nach 2 Sekunden neu, wenn er abstürzt
 oder geschlossen wird.
 
+Ein Wächter im Skript fängt zusätzlich den Fall ab, dass nur die Seite abstürzt oder
+einfriert, Chromium aber weiterläuft: Die Seite schreibt alle 10 Sekunden einen Takt in
+ihren Fenstertitel (`heartbeatSec` im `CONFIG`). Das Skript liest ihn alle 30 Sekunden
+über die lokale Debug-Schnittstelle von Chromium und startet Chromium neu, wenn der Takt
+2,5 Minuten lang stehen bleibt. Ausserdem startet es Chromium einmal pro Tag um 03:35 Uhr
+neu. Die Einstellungen stehen am Anfang von `kiosk.sh`:
+
+| Einstellung | Bedeutung |
+|---|---|
+| `WATCH_PORT=9222` | Port der Debug-Schnittstelle, nur vom Pi selbst erreichbar (`0` = Takt nicht prüfen) |
+| `WATCH_INTERVAL=30`, `WATCH_STALL=5` | Kontrolle alle 30 Sekunden, Neustart nach 5 Kontrollen ohne neuen Takt |
+| `DAILY_RESTART="03:35"` | täglicher Neustart von Chromium (`""` = aus) |
+
+Der Wächter braucht `curl`; es ist auf Raspberry Pi OS vorinstalliert.
+
 Auf dem Pi 4 zeigt Chromium die Seite direkt beim ersten Start. Auf einem Pi 3 blieb das
 Fenster beim ersten Start nach dem Booten leer; erst der zweite Start zeigte die Seite.
 Dafür gibt es in `kiosk.sh` die Einstellung `WARMUP_SEC` (voreingestellt `0` = aus): Mit
@@ -287,6 +302,7 @@ sich gegenseitig, deshalb stehen alle Funktionen in einer einzigen Liste.
 | `--force-device-scale-factor=1` | 1 CSS-Pixel = 1 Display-Pixel; die Seite skaliert sich selbst (siehe «Einstellungen der App») |
 | `--window-position=0,0` | Fenster oben links |
 | `--disk-cache-size=10485760` | Cache auf 10 MB begrenzen |
+| `--remote-debugging-port=9222` | Debug-Schnittstelle für den Wächter, nur auf `127.0.0.1` (entfällt mit `WATCH_PORT=0`) |
 | `--ozone-platform=wayland` | nur unter Wayland, wird automatisch gesetzt |
 
 Zusätzlich setzt das Skript vor jedem Start im Profil `exited_cleanly` auf `true`,
@@ -424,6 +440,7 @@ Nach dem Booten erscheint Track-O-Mat im Vollbild und im Hochformat. Prüfen:
 | Terminal öffnen (nach dem Stoppen) | `Ctrl+Alt+T` |
 | Kiosk wieder aktivieren | `Ctrl+Alt+Shift+K` oder `sudo reboot` |
 | Zustand abfragen | `~/track-o-mat/kiosk.sh status` |
+| Protokoll ansehen | `~/track-o-mat/kiosk.sh log` (mehr Zeilen: `kiosk.sh log 200`) |
 
 Falls die Tastenkürzel nicht greifen, geht es immer über die Textkonsole:
 
@@ -436,6 +453,20 @@ danach läuft der Kiosk wieder von selbst.
 
 Hast du Taskleiste und Desktop in Schritt 6 abgeschaltet, bleibt nach `Ctrl+Alt+Shift+Q` ein
 leerer Bildschirm. `Ctrl+Alt+T` öffnet dann ein Terminal.
+
+### Protokoll
+
+`kiosk.sh` schreibt nach `~/.local/state/track-o-mat/`:
+
+| Datei | Inhalt |
+|---|---|
+| `kiosk.log` | jeder Start und jedes Ende von Chromium mit Rückgabewert und Laufzeit, Eingriffe des Wächters, Wartung, jede Restaurant-Abfrage mit Ergebnis oder Fehlergrund |
+| `chromium.log` | Fehlerausgabe von Chromium im laufenden Betrieb |
+| `chromium.log.1` | Fehlerausgabe des vorherigen Laufs; sie zeigt, warum Chromium beendet wurde |
+
+Jede Datei ist auf 256 KB begrenzt (`kiosk.log` behält eine ältere Kopie als
+`kiosk.log.1`). Den Grund des letzten Ladefehlers der Abfahrten zeigt die App selbst
+unter «Info» in der Zeile «Abfahrten: letzter Fehler».
 
 ## Einstellungen der App
 
@@ -459,8 +490,10 @@ Die Daten stammen von OpenStreetMap. `kiosk.sh` holt sie einmal pro Tag ab 07:00
 (`refreshAt`) und legt sie als `places.js` neben die Seite; fehlt die Datei, holt es sie
 sofort. War der Pi um 07:00 Uhr aus, folgt die Aktualisierung beim nächsten Start. Der
 Dienst ist zeitweise überlastet; dann bleibt die bisherige Liste stehen, und das Skript
-versucht es alle 10 Minuten erneut. Von
-Hand geht es mit:
+versucht es alle 10 Minuten erneut. Die Antwort wird nicht unverändert übernommen: Das
+Skript prüft sie mit `python3` (auf Raspberry Pi OS vorinstalliert) und schreibt
+`places.js` aus den benötigten Feldern neu. Warum eine Abfrage scheiterte, steht im
+Protokoll (`kiosk.sh log`). Von Hand geht es mit:
 
 ```bash
 ~/track-o-mat/kiosk.sh places

@@ -524,6 +524,7 @@
       <div class="kv"><span>Abfahrten: Intervall</span><span id="info-interval"></span></div>
       <div class="kv"><span>Abfahrten: Stand</span><span id="info-last">–</span></div>
       <div class="kv"><span>Abfahrten: Verbindung</span><span id="info-conn">–</span></div>
+      <div class="kv"><span>Abfahrten: letzter Fehler</span><span id="info-error">–</span></div>
       <div class="kv only-places"><span>Restaurants: Datenquelle</span><span>© OpenStreetMap-Mitwirkende</span></div>
       <div class="kv only-places"><span>Restaurants: Intervall</span><span id="info-places-interval"></span></div>
       <div class="kv only-places" style="border-bottom:0"><span>Restaurants: Stand</span><span id="info-places-last">–</span></div>
@@ -573,6 +574,8 @@
     idleResetSec: 120,                            // ohne Berührung zurück auf Standardfilter (0 = aus)
     nightlyReload: '03:30',                       // Seite einmal pro Nacht neu laden ('' = aus)
     mouseCursorHideSec: 5,                        // Mauszeiger nach … Sekunden ohne Mausbewegung ausblenden
+    heartbeatSec: 10,                             // Takt im Fenstertitel alle … Sekunden (0 = aus). Daran erkennt
+                                                  // der Wächter in kiosk.sh eine abgestürzte oder hängende Seite
     clockSweepSec: 58.5,                          // Bahnhofsuhr: Umlauf des Sekundenzeigers; den Rest der
                                                   // Minute wartet er oben, bis der Minutenzeiger springt
     // Ansicht "Restaurants": Lokale im Umkreis des Bahnhofs aus OpenStreetMap.
@@ -661,6 +664,9 @@
   var hasData = false;       // mindestens einmal erfolgreich geladen
   var online = true;
   var lastOk = 0;            // Zeitpunkt der letzten erfolgreichen Abfrage (ms)
+  var lastError = '';        // letzter Ladefehler mit Zeitpunkt, für das Info-Fenster
+  var lastBeatAt = 0;        // letzter Takt im Fenstertitel (ms)
+  var baseTitle = document.title;
   var loading = false;
   var nextFetchAt = 0;
   var lastCountdownAt = 0;
@@ -874,6 +880,7 @@
     $('info-places-last').textContent = placesAt ? fmtStamp.format(new Date(placesAt)) + ' Uhr'
       : placesState === 'error' ? 'noch keine Daten' : '–';
     $('info-conn').textContent = online ? 'in Ordnung' : 'unterbrochen';
+    $('info-error').textContent = lastError || '–';
   }
 
   /* ---------- Farbschema (Tag / Nacht) ---------- */
@@ -945,6 +952,16 @@
   }
 
   /* ---------- Daten laden ---------- */
+  // Grund eines Ladefehlers in Worten, für das Info-Fenster
+  function errorText(err) {
+    var msg = err && err.message ? String(err.message) : String(err);
+    if (err && err.name === 'AbortError') return 'Zeitüberschreitung';
+    if (/^HTTP \d+$/.test(msg) || msg === 'Unerwartete Antwort') return msg;
+    if (err && err.name === 'SyntaxError') return 'Unerwartete Antwort';
+    if (err && err.name === 'TypeError' && /fetch|network|load/i.test(msg)) return 'Server nicht erreichbar';
+    return 'Fehler: ' + msg.slice(0, 60);
+  }
+
   function loadData() {
     if (loading) return;
     loading = true;
@@ -976,9 +993,10 @@
         render();
         updateStatus();
       })
-      .catch(function () {
+      .catch(function (err) {
         // Letzte Daten bleiben stehen; der nächste Versuch folgt automatisch
         online = false;
+        lastError = fmtStamp.format(new Date()) + ' – ' + errorText(err);
         updateStatus();
         if (!hasData) render();
       })
@@ -1342,6 +1360,14 @@
   /* ---------- Ein einziger Takt-Timer für alles (keine Timer-Lecks) ---------- */
   function tick() {
     var now = Date.now();
+
+    // Lebenszeichen für den Wächter in kiosk.sh. Math.abs: auch nach einem Rücksprung der
+    // Systemuhr (Zeitabgleich nach dem Booten) geht es sofort weiter.
+    if (CONFIG.heartbeatSec > 0 && Math.abs(now - lastBeatAt) >= CONFIG.heartbeatSec * 1000) {
+      lastBeatAt = now;
+      document.title = baseTitle + ' [takt ' + Math.floor(now / 1000) + ']';
+    }
+
     updateClock(now);
 
     if (now >= nextFetchAt) loadData();
