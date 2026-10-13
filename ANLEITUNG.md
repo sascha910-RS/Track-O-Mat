@@ -490,8 +490,8 @@ Im Comic-Look steht der nächste Zug gross als «Tagesspecial» über der Liste,
 Restzeit im Stern; ab `runMin` Minuten heisst es dort «Min! Los!». Verspätungen stehen in
 schwarzen Kästchen, eine Gleisänderung ist rot hinterlegt. Statt der Bahnhofsuhr läuft
 eine Donut-Uhr mit der Uhrzeit als Aufkleber. Weil das Tagesspecial Platz braucht, zeigt
-die Liste etwas weniger Abfahrten (1200×1600: 9 statt 10, 900×1440: 13 wie im
-klassischen Look, weil die Comic-Zeilen niedriger sind).
+die Liste je nach Bildschirm gleich viele Abfahrten oder eine weniger (Format 3:4:
+9 statt 10; 900×1440: 13 wie im klassischen Look, weil die Comic-Zeilen niedriger sind).
 
 Texte und Farben stehen im Block `comic` des `CONFIG`: das Schild über dem Titel
 (`presenter`), der Kurzname der Station (`station`), das Etikett (`special`), die
@@ -548,7 +548,6 @@ desto mehr Abfahrten zeigt die Liste.
 | Display (hochkant betrieben) | Skalierung | Zeilen |
 |---|---|---|
 | 1440×900 → 900×1440 | 1,17 | 13 |
-| 1600×1200 → 1200×1600 | 1,56 | 10 |
 | 2048×1536 → 1536×2048 | 2 | 10 |
 
 Die Zeilenzahl ergibt sich aus `rowHeight` (Mindesthöhe einer Zeile, voreingestellt 58).
