@@ -525,6 +525,7 @@ Metern Luftlinie) und die Arten (`types`). Vier Einstellungen verwenden den exak
 Namen aus OpenStreetMap:
 
 - `include` zeigt ein Lokal immer, auch weit ausserhalb des Umkreises (bis 3 km).
+  Gibt es den Namen mehrfach (Ketten), erscheint nur das nächstgelegene.
 - `exclude` blendet eines aus.
 - `rename` gibt ihm einen anderen Anzeigenamen (so erscheint «Cafe Bar Memo» als
   «Memo Döner»).

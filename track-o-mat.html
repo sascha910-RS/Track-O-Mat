@@ -870,7 +870,8 @@
       radius: 440,                                // Meter Luftlinie; reicht bis Cafe Bar Memo am Lindenplatz
       refreshAt: '07:00',                         // kiosk.sh lädt die Liste einmal pro Tag ab dieser Zeit
       types: ['restaurant', 'fast_food'],         // OSM "amenity": Restaurants und Take-aways
-      include: ['Cafe Bar Memo', 'Pizza Züri'],   // immer zeigen, auch ausserhalb des Umkreises (bis 3 km)
+      include: ['Cafe Bar Memo', 'Pizza Züri', 'Migros Restaurant'],   // immer zeigen, auch ausserhalb des Umkreises (bis 3 km);
+                                                  // bei mehreren gleichnamigen nur das nächstgelegene
       exclude: [],                                // Namen, die nicht erscheinen sollen
       rename: { 'Cafe Bar Memo': 'Memo Döner' },  // Anzeigename statt des Namens in OSM
       hours: {}                                   // Öffnungszeiten von Hand, wenn sie in OSM fehlen oder falsch
@@ -1628,10 +1629,19 @@
               if (R.types.indexOf(t.amenity) < 0 || !(dist <= R.radius)) continue;
               if (t.access === 'private' || t.access === 'no') continue;
             }
-            list.push({ name: R.rename[t.name] || t.name, kind: t.amenity, cuisine: t.cuisine || '',
+            list.push({ name: R.rename[t.name] || t.name, osmName: t.name, kind: t.amenity, cuisine: t.cuisine || '',
                         hours: R.hours[t.name] || t.opening_hours || '', dist: dist });
           }
           list.sort(function (a, b) { return a.dist - b.dist; });
+          // Von fest aufgenommenen Namen (include) nur das nächstgelegene Lokal behalten:
+          // Ketten wie «Migros Restaurant» gibt es im 3-km-Umkreis mehrfach
+          var seen = {};
+          list = list.filter(function (pl) {
+            if (R.include.indexOf(pl.osmName) < 0) return true;
+            if (seen[pl.osmName]) return false;
+            seen[pl.osmName] = true;
+            return true;
+          });
           placesAt = raw.at;
           usePlaces(list);
         }
