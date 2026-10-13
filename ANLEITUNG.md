@@ -479,6 +479,27 @@ für einen Umlauf 58,5 Sekunden (`clockSweepSec`), wartet dann oben und läuft w
 sobald der Minutenzeiger zur vollen Minute springt. Die Zeigerfarben folgen dem
 Farbschema, im Nachtmodus ist das Zifferblatt dunkel.
 
+### Erscheinungsbild
+
+Der Knopf rechts unten schaltet zwischen zwei Looks um: dem klassischen und einem
+Comic-Look. Die Wahl bleibt gespeichert, auch über einen Neustart; `defaultLook` im
+`CONFIG` gilt nur beim allerersten Start. Die Rückkehr nach Inaktivität (`idleResetSec`)
+ändert den Look nicht.
+
+Im Comic-Look steht der nächste Zug gross als «Tagesspecial» über der Liste, mit der
+Restzeit im Stern; ab `runMin` Minuten heisst es dort «Min! Los!». Verspätungen stehen in
+schwarzen Kästchen, eine Gleisänderung ist rot hinterlegt. Statt der Bahnhofsuhr läuft
+eine Donut-Uhr mit der Uhrzeit als Aufkleber. Weil das Tagesspecial Platz braucht, zeigt
+die Liste etwas weniger Abfahrten (1200×1600: 9 statt 10, 900×1440: 13 wie im
+klassischen Look, weil die Comic-Zeilen niedriger sind).
+
+Texte und Farben stehen im Block `comic` des `CONFIG`: das Schild über dem Titel
+(`presenter`), der Kurzname der Station (`station`), das Etikett (`special`), die
+Zeilenhöhe (`rowHeight`) sowie `colors` und `nightColors` für den Nachtmodus.
+
+Die beiden Schriften des Comic-Looks (Bangers und Rammetto One, SIL Open Font License)
+sind in `track-o-mat.html` eingebettet; die Seite lädt weiterhin nichts aus dem Netz.
+
 ### Restaurants
 
 Rechts von «Info» öffnet der Knopf «Restaurants» eine Liste der Restaurants und
@@ -527,6 +548,7 @@ desto mehr Abfahrten zeigt die Liste.
 | Display (hochkant betrieben) | Skalierung | Zeilen |
 |---|---|---|
 | 1440×900 → 900×1440 | 1,17 | 13 |
+| 1600×1200 → 1200×1600 | 1,56 | 10 |
 | 2048×1536 → 1536×2048 | 2 | 10 |
 
 Die Zeilenzahl ergibt sich aus `rowHeight` (Mindesthöhe einer Zeile, voreingestellt 58).
