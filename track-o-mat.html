@@ -439,6 +439,30 @@
   }
   .tile2.pressed { background: var(--tile2-pressed); }
 
+  /* ---------- Ruhebildschirm (CONFIG.rest) ---------- */
+  /* Bewusst dunkel und schwach: das Display soll den leeren Raum nicht ausleuchten.
+     Er liegt über allem und fängt jedes Antippen ab. */
+  #rest {
+    display: none;
+    position: absolute;
+    left: 0; top: 0;
+    width: 768px;
+    height: var(--app-h);
+    z-index: 20;
+    align-items: center;
+    justify-content: center;
+    background: #000000;
+    color: #5E5E5E;
+    text-align: center;
+  }
+  html.resting #rest { display: flex; }
+  #rest-time { font-size: 128px; line-height: 132px; font-weight: 300; color: #6E6E6E; }
+  #rest-date { padding-top: 6px; font-size: 24px; line-height: 30px; }
+  #rest-title { padding-top: 56px; font-size: 30px; line-height: 36px; color: #6E6E6E; }
+  #rest-next { padding-top: 8px; font-size: 22px; line-height: 28px; }
+  html.comic #rest-time, html.comic #rest-title { font-family: var(--f-comic); letter-spacing: 2px; text-transform: uppercase; color: #8A4A26; }
+  html.comic #rest-time { font-weight: 400; }
+
   /* ======================================================================
      COMIC-LOOK – zweites Erscheinungsbild, umschaltbar über «Look» in der Fusszeile.
      Alles hier gilt nur mit der Klasse "comic" auf <html>; der klassische Look bleibt
@@ -800,6 +824,7 @@
       <div class="note" style="padding-top:0;padding-bottom:12px">Live-Abfahrten am Bahnhof. Alle Angaben ohne Gewähr.</div>
       <div class="kv"><span>Station</span><span id="info-station"></span></div>
       <div class="kv"><span>Nachtmodus</span><span id="info-night"></span></div>
+      <div class="kv"><span>Ruhezeit</span><span id="info-rest"></span></div>
       <div class="kv"><span>Abfahrten: Datenquelle</span><span>transport.opendata.ch</span></div>
       <div class="kv"><span>Abfahrten: Intervall</span><span id="info-interval"></span></div>
       <div class="kv"><span>Abfahrten: Stand</span><span id="info-last">–</span></div>
@@ -819,6 +844,16 @@
         <svg class="icon" viewBox="0 0 44 44"><path d="M8 11h28L25 24v10l-6 3V24z"/></svg>
         Filter zurücksetzen
       </div>
+    </div>
+  </div>
+
+  <!-- Ruhezeit: keine Abfragen, nur Uhr und Hinweis -->
+  <div id="rest">
+    <div id="rest-box">
+      <div id="rest-time"></div>
+      <div id="rest-date"></div>
+      <div id="rest-title">Ruhezeit</div>
+      <div id="rest-next"></div>
     </div>
   </div>
 
@@ -876,6 +911,14 @@
       rename: { 'Cafe Bar Memo': 'Memo Döner' },  // Anzeigename statt des Namens in OSM
       hours: {}                                   // Öffnungszeiten von Hand, wenn sie in OSM fehlen oder falsch
                                                   // sind, z. B. { 'Pizza Züri': 'Mo-Sa 11:00-14:00,17:00-23:00' }
+    },
+    // Ruhezeit: keine Abfragen; statt der Liste ein dunkler Ruhebildschirm mit Uhr. Antippen
+    // weckt die Anzeige nicht. kiosk.sh liest diesen Block ebenfalls und holt in der
+    // Ruhezeit keine Restaurantliste – Schreibweise beibehalten (from und to auf einer Zeile).
+    rest: {
+      enabled: true,                              // false = keine Ruhezeit
+      from: '00:00', to: '05:00',                 // jede Nacht von … bis … (HH:MM, Europe/Zurich)
+      days: ['Sa', 'Su']                          // ganze Ruhetage: Mo Tu We Th Fr Sa Su
     },
     // Erscheinungsbild: 'classic' oder 'comic'. Der Knopf rechts unten schaltet um; die Wahl
     // bleibt gespeichert (auch über einen Neustart), defaultLook gilt nur beim ersten Start.
@@ -988,6 +1031,8 @@
   var rowCount = 10;         // Anzahl Zeilen der Liste (wird in layout() bestimmt)
   var view = 'trains';       // 'trains' (Abfahrten) oder 'food' (Restaurants)
   var look = 'classic';      // 'classic' oder 'comic'
+  var resting = false;       // Ruhezeit aktiv (CONFIG.rest)
+  var restWake = 0;          // Ende der laufenden Ruhezeit (ms), 0 = unbekannt
   var places = [];           // Lokale aus OpenStreetMap: { name, kind, cuisine, hours, dist }
   var placesState = '';      // '', 'loading', 'ok' oder 'error'
   var placesLoading = false;
@@ -1301,6 +1346,7 @@
     for (var i = 0; i < parts.length; i++) p[parts[i].type] = parts[i].value.replace('.', '');
     $('c-pill').textContent = CONFIG.comic.station + ' · ' + p.weekday + ' ' + p.day + '. ' + p.month;
     $('clock-sticker').textContent = time;
+    if (resting) updateRest(now);
   }
 
   /* ---------- Bahnhofsuhr ---------- */
@@ -1375,6 +1421,67 @@
     clockTimer = setTimeout(syncClock, 60000 - msInMinute + 10);
   }
 
+  /* ---------- Ruhezeit ---------- */
+  // Wochentag (0 = Montag) und Uhrzeit "HH:MM" eines Zeitpunkts in Europe/Zurich
+  function zurichParts(ms) {
+    var p = {}, parts = fmtDayParts.formatToParts(new Date(ms));
+    for (var i = 0; i < parts.length; i++) p[parts[i].type] = parts[i].value;
+    return { day: DAYS.indexOf(p.weekday.slice(0, 2)), time: p.hour + ':' + p.minute };
+  }
+
+  function isResting(ms) {
+    var R = CONFIG.rest;
+    if (!R || !R.enabled) return false;
+    var p = zurichParts(ms);
+    if (R.days.indexOf(DAYS[p.day]) >= 0) return true;
+    if (R.from === R.to) return false;
+    // Zeitfenster über Mitternacht (22:00–05:00) oder innerhalb eines Tages (00:00–05:00)
+    return R.from > R.to ? (p.time >= R.from || p.time < R.to) : (p.time >= R.from && p.time < R.to);
+  }
+
+  // Erste Minute nach now, die nicht in der Ruhezeit liegt (0 = in den nächsten 8 Tagen keine).
+  // Grob in Viertelstunden suchen, dann auf die Minute genau zurückgehen.
+  function nextWake(now) {
+    var t = now - now % 60000 + 60000, end = now + 8 * 86400000;
+    while (t < end && isResting(t)) t += 900000;
+    if (t >= end) return 0;
+    while (t - 60000 > now && !isResting(t - 60000)) t -= 60000;
+    return t;
+  }
+
+  function updateRest(now) {
+    var d = new Date(now), wake = restWake;
+    $('rest-time').textContent = hhmm(now);
+    $('rest-date').textContent = fmtWeekday.format(d) + ', ' + fmtDate.format(d);
+    var label = '';
+    if (wake) {
+      var sameDay = fmtDate.format(new Date(wake)) === fmtDate.format(d);
+      label = 'Abfahrten wieder ab ' + (sameDay ? '' : DAYS_DE[zurichParts(wake).day] + ' ') + hhmm(wake) + ' Uhr';
+    }
+    $('rest-next').textContent = label;
+    // Text jede Minute ein paar Pixel verschieben, damit sich über ein Wochenende nichts einbrennt
+    var m = Math.floor(now / 60000);
+    $('rest-box').style.transform = 'translate(' + ((m % 7) - 3) * 10 + 'px,' + ((m % 5) - 2) * 14 + 'px)';
+  }
+
+  function setResting(on, now) {
+    resting = on;
+    document.documentElement.classList.toggle('resting', on);
+    if (on) {
+      // Alte Abfahrten verwerfen, damit beim Aufwachen nichts Veraltetes erscheint
+      entries = [];
+      hasData = false;
+      closeOverlay();
+      restWake = nextWake(now);
+      updateRest(now);
+    } else {
+      online = true;
+      nextFetchAt = 0;           // sofort frisch laden
+    }
+    render();
+    updateStatus();
+  }
+
   /* ---------- Daten laden ---------- */
   // Grund eines Ladefehlers in Worten, für das Info-Fenster
   function errorText(err) {
@@ -1402,6 +1509,7 @@
         return r.json();
       })
       .then(function (data) {
+        if (resting) return;     // während der Ruhezeit eingetroffen: verwerfen
         if (!data || !Array.isArray(data.stationboard)) throw new Error('Unerwartete Antwort');
         var list = [];
         for (var i = 0; i < data.stationboard.length; i++) {
@@ -1418,6 +1526,7 @@
         updateStatus();
       })
       .catch(function (err) {
+        if (resting) return;
         // Letzte Daten bleiben stehen; der nächste Versuch folgt automatisch
         online = false;
         lastError = fmtStamp.format(new Date()) + ' – ' + errorText(err);
@@ -1759,7 +1868,7 @@
   function onAction(action) {
     if (action === 'help' || action === 'info') openOverlay(action);
     else if (action === 'close') closeOverlay();
-    else if (action === 'refresh') { loadData(); closeOverlay(); }
+    else if (action === 'refresh') { if (!resting) loadData(); closeOverlay(); }
     else if (action === 'reset') { setFilter(CONFIG.defaultFilter); closeOverlay(); }
     else if (action === 'food') setView(view === 'food' ? 'trains' : 'food');
     else if (action === 'look') setLook(look === 'comic' ? 'classic' : 'comic', true);
@@ -1830,9 +1939,12 @@
       document.title = baseTitle + ' [takt ' + Math.floor(now / 1000) + ']';
     }
 
+    var rest = isResting(now);
+    if (rest !== resting) setResting(rest, now);
+
     updateClock(now);
 
-    if (now >= nextFetchAt) loadData();
+    if (!resting && now >= nextFetchAt) loadData();
     if (CONFIG.restaurants.enabled && now >= nextPlacesAt) loadPlaces();
     if (now - lastCountdownAt >= CONFIG.countdownSec * 1000) {
       lastCountdownAt = now;
@@ -1883,6 +1995,11 @@
     applyTheme(isNight(hhmm(Date.now())));
     $('info-night').textContent = CONFIG.nightMode && CONFIG.nightMode.enabled
       ? CONFIG.nightMode.from + '–' + CONFIG.nightMode.to + ' Uhr' : 'aus';
+    var R = CONFIG.rest, restDays = R && R.days ? R.days.map(function (d) { return DAYS_DE[DAYS.indexOf(d)]; }) : [];
+    $('info-rest').textContent = R && R.enabled
+      ? (R.from !== R.to ? R.from + '–' + R.to + ' Uhr' : '') + (R.from !== R.to && restDays.length ? ', ' : '') +
+        restDays.join(' und ').replace(/ und (?=.* und )/g, ', ')
+      : 'aus';
     $('brand').textContent = CONFIG.appName;
     $('station').textContent = CONFIG.station;
     $('info-station').textContent = CONFIG.station;
@@ -1917,7 +2034,9 @@
     }
     updateClock(Date.now());
     updateStatus();
-    loadData();
+    // In der Ruhezeit gestartet (etwa nach dem Neuladen um 03:30): gleich ruhen, nichts abfragen
+    if (isResting(Date.now())) setResting(true, Date.now());
+    else loadData();
     setInterval(tick, 1000);   // läuft für die gesamte Lebensdauer der Seite
   }
 

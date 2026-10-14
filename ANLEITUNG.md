@@ -479,6 +479,29 @@ für einen Umlauf 58,5 Sekunden (`clockSweepSec`), wartet dann oben und läuft w
 sobald der Minutenzeiger zur vollen Minute springt. Die Zeigerfarben folgen dem
 Farbschema, im Nachtmodus ist das Zifferblatt dunkel.
 
+### Ruhezeit
+
+Jede Nacht von 00:00 bis 05:00 Uhr und den ganzen Samstag und Sonntag ruht die
+Anzeige: Sie fragt keine Abfahrten ab, und `kiosk.sh` holt keine Restaurantliste. Statt
+der Liste zeigt sie einen dunklen Ruhebildschirm mit Uhrzeit, Datum und dem Hinweis, wann
+es weitergeht (zum Beispiel «Abfahrten wieder ab Mo 05:00 Uhr»). Antippen weckt sie nicht.
+Um 05:00 Uhr lädt sie sofort frische Daten; Abfahrten von vor der Ruhezeit erscheinen
+nicht mehr.
+
+Eingestellt wird das im Block `rest` des `CONFIG`:
+
+| Einstellung | Bedeutung |
+|---|---|
+| `enabled: true` | `false` = keine Ruhezeit |
+| `from: '00:00', to: '05:00'` | nächtliches Zeitfenster; über Mitternacht geht auch (`'22:00'` bis `'05:00'`) |
+| `days: ['Sa', 'Su']` | ganze Ruhetage, Kürzel `Mo Tu We Th Fr Sa Su` |
+
+`kiosk.sh` liest diese Werte aus der Seite; `from` und `to` müssen deshalb auf einer Zeile
+stehen bleiben. Feiertage sind nicht berücksichtigt. Der Wächter und der tägliche Neustart
+laufen auch in der Ruhezeit weiter, ebenso `kiosk.sh places` von Hand. Den Text des
+Ruhebildschirms verschiebt die Seite jede Minute um einige Pixel, damit sich über ein
+Wochenende nichts ins Display einbrennt. `kiosk.sh status` meldet, ob gerade Ruhezeit ist.
+
 ### Erscheinungsbild
 
 Der Knopf rechts unten schaltet zwischen zwei Looks um: dem klassischen und einem
@@ -509,7 +532,7 @@ man. Nach `idleResetSec` ohne Berührung springt die Anzeige zu den Abfahrten zu
 
 Die Daten stammen von OpenStreetMap. `kiosk.sh` holt sie einmal pro Tag ab 07:00 Uhr
 (`refreshAt`) und legt sie als `places.js` neben die Seite; fehlt die Datei, holt es sie
-sofort. War der Pi um 07:00 Uhr aus, folgt die Aktualisierung beim nächsten Start. Der
+sofort, ausser in der Ruhezeit. War der Pi um 07:00 Uhr aus, folgt die Aktualisierung beim nächsten Start. Der
 Dienst ist zeitweise überlastet; dann bleibt die bisherige Liste stehen, und das Skript
 versucht es alle 10 Minuten erneut. Die Antwort wird nicht unverändert übernommen: Das
 Skript prüft sie mit `python3` (auf Raspberry Pi OS vorinstalliert) und schreibt

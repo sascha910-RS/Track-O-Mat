@@ -139,11 +139,38 @@ update_places() {
   return 1
 }
 
+# Wert aus dem Block "rest" des CONFIG ($1 = sed-Ausdruck). Auf den Block beschränkt,
+# weil "enabled", "from" und "to" auch in anderen Blöcken vorkommen.
+rest_value() {
+  sed -n -e '/^ *rest: *{/,/^ *}/{' -e "$1" -e '}' "$PAGE" | head -n 1
+}
+
+# Ruhezeit laut CONFIG (Ruhetage und nächtliches Zeitfenster, Europe/Zurich): 0 = jetzt ruhen
+is_rest_now() {
+  local enabled from to days now names=(Mo Tu We Th Fr Sa Su) day
+  enabled="$(rest_value 's/^ *enabled: *\([a-z]*\).*/\1/p')"
+  [ "$enabled" = "true" ] || return 1
+  from="$(rest_value "s/^ *from: *'\([0-9:]*\)'.*/\1/p")"
+  to="$(rest_value "s/^ *from: *'[0-9:]*', *to: *'\([0-9:]*\)'.*/\1/p")"
+  days="$(rest_value "s/^ *days: *\[\(.*\)\].*/\1/p")"
+  now="$(TZ=Europe/Zurich date +%H:%M)"
+  day="${names[$(( $(TZ=Europe/Zurich date +%u) - 1 ))]}"     # %u: 1 = Montag … 7 = Sonntag
+  case "$days" in *"'$day'"*|*"\"$day\""*) return 0 ;; esac
+  if [ -z "$from" ] || [ -z "$to" ] || [ "$from" = "$to" ]; then return 1; fi
+  if [ "$from" \< "$to" ]; then
+    [ ! "$now" \< "$from" ] && [ "$now" \< "$to" ]
+  else
+    [ ! "$now" \< "$from" ] || [ "$now" \< "$to" ]
+  fi
+}
+
 # Läuft neben dem Kiosk: holt die Liste, wenn sie fehlt, sonst einmal pro Tag ab der
-# refreshAt-Zeit. Nach einem Fehler folgt der nächste Versuch in 10 Minuten.
+# refreshAt-Zeit. Nach einem Fehler folgt der nächste Versuch in 10 Minuten. In der
+# Ruhezeit (Block "rest" im CONFIG) fragt es nie ab, auch nicht bei fehlender Datei.
 places_loop() {
   local at
   while true; do
+    if is_rest_now; then sleep 60; continue; fi
     at="$(page_value "s/^ *refreshAt: *'\([0-9:]*\)'.*/\1/p")"
     if [ ! -f "$PLACES_FILE" ] \
        || { [ "$(date -r "$PLACES_FILE" +%F)" != "$(date +%F)" ] && [ ! "$(date +%H:%M)" \< "${at:-07:00}" ]; }; then
@@ -314,6 +341,7 @@ case "${1:-run}" in
   status)
     if loop_running; then echo "Kiosk läuft (PID $(cat "$PID_FILE"))."; else echo "Kiosk läuft nicht."; fi
     if [ -f "$STOP_FLAG" ]; then echo "Wartungsmodus aktiv."; fi
+    if is_rest_now; then echo "Ruhezeit: keine Abfragen."; fi
     echo "Protokoll: $LOG_FILE"
     ;;
   log)
