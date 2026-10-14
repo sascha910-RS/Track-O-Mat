@@ -500,7 +500,18 @@
     -webkit-text-stroke: 9px var(--c-line); paint-order: stroke fill;
     text-shadow: 6px 6px 0 var(--c-line);
     transform: rotate(-3deg) skewX(-6deg); transform-origin: left center;
+    /* Leichtes Pulsieren. Nur transform wird animiert: das erledigt die Grafikkarte,
+       ohne die Seite neu zu zeichnen */
+    animation: c-title-pulse 2.6s ease-in-out infinite;
+    will-change: transform;
   }
+  @keyframes c-title-pulse {
+    0%, 100% { transform: rotate(-3deg) skewX(-6deg) scale(1); }
+    50%      { transform: rotate(-3deg) skewX(-6deg) scale(1.04); }
+  }
+  /* In der Ruhezeit ist der Titel verdeckt: Animation anhalten */
+  html.resting #c-title { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { #c-title { animation: none; } }
   #c-pill {
     position: absolute; left: 30px; top: 142px;
     padding: 0 18px;
