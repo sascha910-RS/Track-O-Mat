@@ -402,13 +402,23 @@
   .kv {
     display: grid;
     grid-template-columns: 250px 1fr;
-    min-height: 56px;
+    min-height: 51px;
     align-items: center;
     border-bottom: 1px solid var(--line);
     font-size: 21px;
   }
   .kv span:first-child { color: var(--muted); }
   .about-name { padding: 16px 0 4px; font-size: 30px; }
+  /* Ressourcen-Monitor: "CPU ▬▬▬ 23 %   RAM ▬▬▬ 1,2 / 3,7 GB" */
+  #info-sys { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .meter { display: inline-block; width: 52px; height: 12px; background: var(--line); }
+  .meter i { display: block; height: 100%; width: 0; background: var(--ok); }
+  .meter.high i { background: var(--accent); }
+  .sys-gap { width: 6px; }
+  html.comic #info-sys { font-size: 19px; }     /* das Comic-Panel ist schmaler */
+  html.comic .meter { border: 2px solid var(--c-line); background: var(--c-paper); height: 14px; }
+  html.comic .meter i { background: var(--c-mint); }
+  html.comic .meter.high i { background: var(--c-red); }
 
   /* Sekundäre Kacheln: hellgrau, Icon über dem Text, Pfeil rechts */
   #actions {
@@ -843,7 +853,8 @@
       <div class="kv"><span>Abfahrten: letzter Fehler</span><span id="info-error">–</span></div>
       <div class="kv only-places"><span>Restaurants: Datenquelle</span><span>© OpenStreetMap-Mitwirkende</span></div>
       <div class="kv only-places"><span>Restaurants: Intervall</span><span id="info-places-interval"></span></div>
-      <div class="kv only-places" style="border-bottom:0"><span>Restaurants: Stand</span><span id="info-places-last">–</span></div>
+      <div class="kv only-places"><span>Restaurants: Stand</span><span id="info-places-last">–</span></div>
+      <div class="kv" style="border-bottom:0"><span>System</span><span id="info-sys">–</span></div>
     </div>
 
     <div id="actions">
@@ -1044,6 +1055,8 @@
   var look = 'classic';      // 'classic' oder 'comic'
   var resting = false;       // Ruhezeit aktiv (CONFIG.rest)
   var restWake = 0;          // Ende der laufenden Ruhezeit (ms), 0 = unbekannt
+  var statsLoading = false;  // Messwerte von kiosk.sh werden gerade gelesen
+  var nextStatsAt = 0;
   var places = [];           // Lokale aus OpenStreetMap: { name, kind, cuisine, hours, dist }
   var placesState = '';      // '', 'loading', 'ok' oder 'error'
   var placesLoading = false;
@@ -1586,10 +1599,66 @@
     $('panel-info').classList.toggle('open', !help);
     $('actions').classList.toggle('open', !help);
     elOverlay.classList.add('open');
+    if (!help) loadStats();
   }
   function closeOverlay() {
     overlayMode = '';
     elOverlay.classList.remove('open');
+  }
+
+  /* ---------- Ressourcen-Monitor (Info-Fenster) ---------- */
+  // kiosk.sh misst CPU und RAM und legt die Werte als Script ab; den Ort übergibt es in der
+  // Adresse (?stats=…). Gelesen wird nur, solange das Info-Fenster offen ist.
+  var STATS_SRC = (function () {
+    var m = /[?&]stats=([^&#]+)/.exec(location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  })();
+
+  function meter(pct) {
+    var m = el('span', 'meter' + (pct >= 85 ? ' high' : '')), bar = el('i');
+    bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+    m.appendChild(bar);
+    return m;
+  }
+
+  function gb(kb) { return (kb / 1048576).toLocaleString(CONFIG.locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 }); }
+
+  function showStats(st) {
+    var box = $('info-sys');
+    if (!STATS_SRC) { box.textContent = 'nur im Kiosk-Betrieb'; return; }
+    if (!st || typeof st.at !== 'number' || Date.now() - st.at > 30000) { box.textContent = 'keine aktuellen Werte'; return; }
+    var frag = document.createDocumentFragment();
+    frag.appendChild(el('span', null, 'CPU'));
+    if (typeof st.cpu === 'number') {
+      frag.appendChild(meter(st.cpu));
+      frag.appendChild(el('span', null, st.cpu + ' %'));
+    } else frag.appendChild(el('span', null, 'wird gemessen …'));
+    frag.appendChild(el('span', 'sys-gap'));
+    frag.appendChild(el('span', null, 'RAM'));
+    if (st.memTotalKb > 0) {
+      frag.appendChild(meter(Math.round(st.memUsedKb / st.memTotalKb * 100)));
+      frag.appendChild(el('span', null, gb(st.memUsedKb) + ' / ' + gb(st.memTotalKb) + ' GB'));
+    } else frag.appendChild(el('span', null, '–'));
+    box.replaceChildren(frag);
+  }
+
+  function loadStats() {
+    nextStatsAt = Date.now() + 5000;
+    if (!STATS_SRC) { showStats(null); return; }
+    if (statsLoading) return;
+    statsLoading = true;
+    var tag = document.createElement('script');
+    var done = function (ok) {
+      var st = ok ? window.TRACKOMAT_STATS : null;
+      window.TRACKOMAT_STATS = null;
+      tag.remove();
+      statsLoading = false;
+      showStats(st);
+    };
+    tag.onload = function () { done(true); };
+    tag.onerror = function () { done(false); };
+    tag.src = 'file://' + STATS_SRC + '?' + Date.now();
+    document.head.appendChild(tag);
   }
 
   /* ---------- Restaurants (OpenStreetMap) ---------- */
@@ -1956,6 +2025,7 @@
     updateClock(now);
 
     if (!resting && now >= nextFetchAt) loadData();
+    if (overlayMode === 'info' && now >= nextStatsAt) loadStats();
     if (CONFIG.restaurants.enabled && now >= nextPlacesAt) loadPlaces();
     if (now - lastCountdownAt >= CONFIG.countdownSec * 1000) {
       lastCountdownAt = now;

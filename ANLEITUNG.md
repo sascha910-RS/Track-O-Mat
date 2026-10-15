@@ -479,6 +479,22 @@ für einen Umlauf 58,5 Sekunden (`clockSweepSec`), wartet dann oben und läuft w
 sobald der Minutenzeiger zur vollen Minute springt. Die Zeigerfarben folgen dem
 Farbschema, im Nachtmodus ist das Zifferblatt dunkel.
 
+### Ressourcen-Monitor
+
+Das Info-Fenster zeigt in der Zeile «System» die CPU-Auslastung und den belegten
+Arbeitsspeicher des Pi, je mit einem kleinen Balken; ab 85 % wird er rot. Die Seite darf
+diese Werte nicht selbst lesen. `kiosk.sh` misst sie deshalb alle 5 Sekunden aus
+`/proc/stat` und `/proc/meminfo` und legt sie als kleine Datei im Arbeitsspeicher ab
+(`/run/user/…/track-o-mat-stats.js`, nicht auf der SD-Karte). Den Ort übergibt es der Seite
+in der Adresse (`track-o-mat.html?stats=…`). Gelesen wird nur, solange das Info-Fenster
+offen ist.
+
+Die CPU-Auslastung gilt für alle Kerne zusammen seit der letzten Messung; direkt nach dem
+Start steht deshalb kurz «wird gemessen …». Als belegt gilt der Speicher, der nicht
+verfügbar ist (`MemTotal` minus `MemAvailable`). Ohne `kiosk.sh`, etwa beim Öffnen der Seite
+am Mac, steht «nur im Kiosk-Betrieb». Ausschalten mit `STATS_INTERVAL=0` am Anfang von
+`kiosk.sh`.
+
 ### Ruhezeit
 
 Jede Nacht von 00:00 bis 05:00 Uhr und den ganzen Samstag und Sonntag ruht die

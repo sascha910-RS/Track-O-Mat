@@ -9,7 +9,6 @@
 #   kiosk.sh log     Protokoll zeigen (letzte 40 Zeilen; "kiosk.sh log 200" für mehr)
 
 APP_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-URL="file://$APP_DIR/track-o-mat.html"
 PROFILE="$HOME/.config/track-o-mat-chromium"       # eigenes Profil, getrennt vom normalen Browser
 RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}"
 STOP_FLAG="$RUN_DIR/track-o-mat.stop"              # existiert = Wartungsmodus (verschwindet beim Reboot)
@@ -17,6 +16,18 @@ PID_FILE="$RUN_DIR/track-o-mat.pid"
 WARM_FLAG="$RUN_DIR/track-o-mat.warm"              # existiert = seit dem Booten schon einmal gestartet
 RESTART_DELAY=2
 WARMUP_SEC=0                                       # einmaliger Neustart nach dem Booten (0 = aus, Pi 3: 30)
+
+# Ressourcen-Monitor im Info-Fenster: misst CPU-Auslastung und belegten Arbeitsspeicher und
+# legt sie als kleine Script-Datei ab, die die Seite liest (sie darf /proc nicht selbst lesen).
+# Die Datei liegt in $RUN_DIR, also im Arbeitsspeicher, nicht auf der SD-Karte.
+STATS_INTERVAL=5                                   # Sekunden zwischen zwei Messungen (0 = aus)
+STATS_FILE="$RUN_DIR/track-o-mat-stats.js"
+PROC_STAT=/proc/stat
+PROC_MEMINFO=/proc/meminfo
+
+# Die Seite erfährt über die Adresse, wo die Messwerte liegen
+URL="file://$APP_DIR/track-o-mat.html"
+if [ "$STATS_INTERVAL" -gt 0 ]; then URL="$URL?stats=$STATS_FILE"; fi
 
 # Wächter: Stürzt nur der Tab ab oder friert die Seite ein, läuft Chromium weiter, und die
 # Neustart-Schleife merkt nichts. Die Seite schreibt deshalb alle paar Sekunden einen Takt
@@ -180,6 +191,38 @@ places_loop() {
   done
 }
 
+# Misst alle STATS_INTERVAL Sekunden die CPU-Auslastung seit der letzten Messung (aus
+# /proc/stat) und den belegten Arbeitsspeicher (MemTotal minus MemAvailable aus
+# /proc/meminfo) und schreibt beides nach STATS_FILE.
+stats_loop() {
+  local cpu_line user nice system idle iowait irq softirq steal total busy
+  local prev_total=0 prev_busy=0 cpu mem_total mem_avail cores key value unit
+  while true; do
+    read -r cpu_line user nice system idle iowait irq softirq steal _ < "$PROC_STAT"
+    total=$((user + nice + system + idle + iowait + irq + softirq + steal))
+    busy=$((total - idle - iowait))
+    cpu=null
+    if [ "$prev_total" -gt 0 ] && [ "$total" -gt "$prev_total" ]; then
+      cpu=$(( (100 * (busy - prev_busy) + (total - prev_total) / 2) / (total - prev_total) ))
+    fi
+    prev_total=$total; prev_busy=$busy
+
+    mem_total=0; mem_avail=0
+    while read -r key value unit; do
+      case "$key" in
+        MemTotal:) mem_total=$value ;;
+        MemAvailable:) mem_avail=$value ;;
+      esac
+    done < "$PROC_MEMINFO"
+    cores="$(grep -c '^cpu[0-9]' "$PROC_STAT")"
+
+    printf 'window.TRACKOMAT_STATS = {"at": %s000, "cpu": %s, "cores": %s, "memTotalKb": %s, "memUsedKb": %s};\n' \
+      "$(date +%s)" "$cpu" "${cores:-0}" "$mem_total" "$((mem_total - mem_avail))" > "$STATS_FILE.tmp" \
+      && mv -f "$STATS_FILE.tmp" "$STATS_FILE"
+    sleep "$STATS_INTERVAL"
+  done
+}
+
 # Läuft neben jedem Chromium-Start: prüft den Takt der Seite, löst den täglichen Neustart
 # aus und begrenzt die Fehlerausgabe von Chromium. Beendet Chromium nur; den Neustart
 # übernimmt die Schleife in run_loop.
@@ -236,8 +279,13 @@ run_loop() {
   echo $$ > "$PID_FILE"
   places_loop >/dev/null 2>&1 &
   PLACES_PID=$!
+  STATS_PID=""
+  if [ "$STATS_INTERVAL" -gt 0 ] && [ -r "$PROC_STAT" ] && [ -r "$PROC_MEMINFO" ]; then
+    stats_loop >/dev/null 2>&1 &
+    STATS_PID=$!
+  fi
   WATCH_PID=""
-  trap 'kill "$PLACES_PID" $WATCH_PID 2>/dev/null; rm -f "$PID_FILE"; log "Kiosk-Schleife beendet"' EXIT
+  trap 'kill "$PLACES_PID" $STATS_PID $WATCH_PID 2>/dev/null; rm -f "$PID_FILE" "$STATS_FILE" "$STATS_FILE.tmp"; log "Kiosk-Schleife beendet"' EXIT
   rm -f "$STOP_FLAG"
   if [ -n "$WAYLAND_DISPLAY" ]; then SESSION="Wayland"; else SESSION="X11"; fi
   log "Kiosk-Schleife gestartet (PID $$, $BROWSER, $SESSION)"
