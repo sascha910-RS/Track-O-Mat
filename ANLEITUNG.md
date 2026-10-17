@@ -568,8 +568,9 @@ berücksichtigt. Falsche Zeiten lassen sich auf openstreetmap.org korrigieren.
 
 Pizza Züri veröffentlicht sein Tagesmenü als PDF auf pizzazueri.ch. Enthält es ein Menü
 mit dem heutigen Datum, steht in der Restaurantliste neben dem Namen «Tagesmenü ›», und
-das Lokal rückt in seiner Gruppe nach oben: Über Mittag steht es unter «Jetzt offen»
-zuoberst. Antippen öffnet ein Fenster mit Menu 1, Menu 2, Vegimenu und Tagespizza samt
+das Lokal steht unter «Jetzt offen» zuoberst: über Mittag und auch am Morgen, bevor es
+öffnet (dann mit «geschlossen, ab 11:30»), damit man nachsehen kann, was es gibt. Am
+Nachmittag und am Abend steht es dort nur, wenn es offen ist. Antippen öffnet ein Fenster mit Menu 1, Menu 2, Vegimenu und Tagespizza samt
 Beschreibung und Preis. Haben alle Menüs dieselbe Vorspeise, steht sie einmal am Schluss.
 Gibt es kein Menü für heute (Montag, Wochenende oder ein PDF, das noch die alte Woche
 enthält), ist Pizza Züri eine gewöhnliche Zeile, und Antippen bewirkt nichts. Nach

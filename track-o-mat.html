@@ -1799,7 +1799,8 @@
     return ('0' + Math.floor(min / 60)).slice(-2) + ':' + ('0' + min % 60).slice(-2);
   }
 
-  // Status eines Lokals zum Zeitpunkt now: { state: 'open'|'closed'|'unknown', when: Text }
+  // Status eines Lokals zum Zeitpunkt now: { state: 'open'|'closed'|'unknown', when: Text,
+  // firstToday: geschlossen, öffnet heute aber noch zum ersten Mal (also "am Morgen") }
   function openState(week, now) {
     if (!week) return { state: 'unknown', when: '' };
     var p = {}, parts = fmtDayParts.formatToParts(new Date(now));
@@ -1821,7 +1822,8 @@
       }
       if (best >= 0) {
         var label = off === 0 ? '' : off === 1 ? 'morgen ' : DAYS_DE[(day + off) % 7] + ' ';
-        return { state: 'closed', when: 'ab ' + label + clockText(best) };
+        var first = off === 0 && list.every(function (sp) { return sp[0] > min; });
+        return { state: 'closed', when: 'ab ' + label + clockText(best), firstToday: first };
       }
     }
     return { state: 'closed', when: '' };
@@ -1909,15 +1911,18 @@
     var now = Date.now(), list = [], i;
     var openCount = 0;
     for (i = 0; i < places.length; i++) {
-      var st = openState(places[i].week, now);
+      var st = openState(places[i].week, now), menu = hasMenu(places[i], now);
+      // Ein Lokal mit Tagesmenü von heute erscheint auch am Morgen, bevor es öffnet, unter
+      // "Jetzt offen", damit man nachsehen kann, was es gibt
+      var top = menu && (st.state === 'open' || !!st.firstToday);
       if (st.state === 'open') openCount++;
-      if (foodFilter === 'all' || st.state === 'open') list.push({ place: places[i], st: st, menu: hasMenu(places[i], now) });
+      if (foodFilter === 'all' || st.state === 'open' || top) list.push({ place: places[i], st: st, menu: menu, top: top });
     }
     var rank = { open: 0, closed: 1, unknown: 2 };
-    // Ein Lokal mit Tagesmenü von heute steht zuoberst in seiner Gruppe, sonst wäre es oft
-    // erst auf der letzten Seite zu finden
+    // Ein Lokal mit Tagesmenü von heute steht ganz oben (offen oder vor der Öffnung) bzw.
+    // zuoberst in seiner Gruppe, sonst wäre es oft erst auf der letzten Seite zu finden
     list.sort(function (a, b) {
-      return rank[a.st.state] - rank[b.st.state] || b.menu - a.menu || a.place.dist - b.place.dist;
+      return b.top - a.top || rank[a.st.state] - rank[b.st.state] || b.menu - a.menu || a.place.dist - b.place.dist;
     });
 
     var pages = Math.max(1, Math.ceil(list.length / rowCount));
