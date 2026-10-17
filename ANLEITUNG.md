@@ -59,7 +59,7 @@ unterscheiden sich zwischen den OS-Versionen leicht; wo das der Fall ist, steht 
 
 ## 1. Dateien kopieren
 
-`track-o-mat.html` und `kiosk.sh` müssen im selben Ordner auf dem Pi liegen. Am einfachsten
+`track-o-mat.html`, `kiosk.sh` und `menu.py` müssen im selben Ordner auf dem Pi liegen. Am einfachsten
 holst du sie direkt auf dem Pi aus dem Repository:
 
 ```bash
@@ -73,7 +73,7 @@ aus dem Raspberry Pi Imager):
 
 ```bash
 ssh pi@HOSTNAME.local 'mkdir -p ~/track-o-mat'
-scp track-o-mat.html kiosk.sh pi@HOSTNAME.local:track-o-mat/
+scp track-o-mat.html kiosk.sh menu.py pi@HOSTNAME.local:track-o-mat/
 ```
 
 Alle weiteren Befehle dieser Anleitung laufen **auf dem Pi**: entweder direkt am Pi im
@@ -460,7 +460,7 @@ leerer Bildschirm. `Ctrl+Alt+T` öffnet dann ein Terminal.
 
 | Datei | Inhalt |
 |---|---|
-| `kiosk.log` | jeder Start und jedes Ende von Chromium mit Rückgabewert und Laufzeit, Eingriffe des Wächters, Wartung, jede Restaurant-Abfrage mit Ergebnis oder Fehlergrund |
+| `kiosk.log` | jeder Start und jedes Ende von Chromium mit Rückgabewert und Laufzeit, Eingriffe des Wächters, Wartung, jede Restaurant-Abfrage mit Ergebnis oder Fehlergrund, jedes neue Tagesmenü und jeder Fehler dabei |
 | `chromium.log` | Fehlerausgabe von Chromium im laufenden Betrieb |
 | `chromium.log.1` | Fehlerausgabe des vorherigen Laufs; sie zeigt, warum Chromium beendet wurde |
 
@@ -577,6 +577,40 @@ Nach einer Änderung von Ort, Umkreis oder `include` `kiosk.sh places` ausführe
 Der Öffnungsstatus ist so gut wie die Angaben in OpenStreetMap: Lokale ohne erfasste
 Zeiten erscheinen als «unbekannt», Feiertage und Betriebsferien werden nicht
 berücksichtigt. Falsche Zeiten lassen sich auf openstreetmap.org korrigieren.
+
+### Tagesmenü
+
+Pizza Züri veröffentlicht sein Tagesmenü als PDF auf pizzazueri.ch. Enthält es ein Menü
+mit dem heutigen Datum, steht in der Restaurantliste neben dem Namen «Tagesmenü ›», und
+das Lokal rückt in seiner Gruppe nach oben: Über Mittag steht es unter «Jetzt offen»
+zuoberst. Antippen öffnet ein Fenster mit Menu 1, Menu 2, Vegimenu und Tagespizza samt
+Beschreibung und Preis. Haben alle Menüs dieselbe Vorspeise, steht sie einmal am Schluss.
+Gibt es kein Menü für heute (Montag, Wochenende oder ein PDF, das noch die alte Woche
+enthält), ist Pizza Züri eine gewöhnliche Zeile, und Antippen bewirkt nichts. Nach
+Mitternacht schliesst sich das Fenster von selbst.
+
+`kiosk.sh` lädt das PDF beim Start und fragt danach alle 30 Minuten (`MENU_INTERVAL`)
+nach, ob es sich geändert hat. Solange es gleich bleibt, antwortet der Server ohne Daten.
+In der Ruhezeit fragt es nie nach. Ein neues PDF liest `menu.py` (braucht nur `python3`,
+keine weiteren Pakete) und legt die Menüs aller Tage darin als `menu.js` neben die
+Seite. Meist steht die ganze Woche im Voraus darin. Jede Seite des PDFs braucht ein
+Datum mit Wochentag, etwa «Dienstag, 20. Oktober 2026». Passt der Wochentag nicht zum
+Datum, wird die Seite übersprungen. Jedes neue Menü und jeder Fehler steht im Protokoll
+(`kiosk.sh log`). Von Hand geht es mit:
+
+```bash
+~/track-o-mat/kiosk.sh menu
+```
+
+Eingestellt ist das im Block `restaurants` des `CONFIG`: `menu` nennt das Lokal (exakter
+Name aus OpenStreetMap) und die Adresse des PDFs, `menu: null` schaltet das Tagesmenü
+ab. Damit Pizza Züri über Mittag als offen gilt, stehen seine Öffnungszeiten (warme
+Küche laut pizzazueri.ch) in `hours`, weil sie in OpenStreetMap fehlen. Ändern sie sich,
+dort nachführen.
+
+Stellt das Lokal sein PDF grundlegend um, findet `menu.py` womöglich keine Menüs mehr.
+Dann bleibt das bisherige `menu.js` stehen, passt aber bald zu keinem Tag mehr, und der
+Hinweis verschwindet. Den Grund nennt das Protokoll.
 
 ### Bildschirmauflösung
 

@@ -6,6 +6,7 @@
 #   kiosk.sh start   Kiosk wieder aktivieren (aus der grafischen Sitzung heraus)
 #   kiosk.sh status  Zustand anzeigen
 #   kiosk.sh places  Restaurantliste jetzt von OpenStreetMap holen (places.js)
+#   kiosk.sh menu    Tagesmenü jetzt holen (menu.js)
 #   kiosk.sh log     Protokoll zeigen (letzte 40 Zeilen; "kiosk.sh log 200" für mehr)
 
 APP_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
@@ -150,6 +151,63 @@ update_places() {
   return 1
 }
 
+# Tagesmenü: Ein Lokal legt sein Tagesmenü als PDF ins Netz (menu im Block restaurants des
+# CONFIG). kiosk.sh lädt es, sobald es sich geändert hat, liest die Menüs heraus und legt
+# sie als menu.js neben die Seite. Das PDF enthält meist mehrere Tage im Voraus; die Seite
+# zeigt nur das Menü mit dem heutigen Datum.
+MENU_FILE="$APP_DIR/menu.js"
+MENU_INTERVAL=1800                                 # Sekunden zwischen zwei Nachfragen (0 = aus)
+MENU_STAMP="$RUN_DIR/track-o-mat-menu.stamp"       # trägt die Änderungszeit des zuletzt geladenen PDFs
+
+menu_url() {
+  page_value "s/^ *menu: *{.*url: *'\([^']*\)'.*/\1/p"
+}
+
+# Liest die Menüs aus dem PDF ($1) und schreibt menu.js ($2); gibt die gefundenen Tage aus.
+# Das erledigt menu.py neben diesem Skript, nur mit der Standardbibliothek von python3.
+write_menu() {
+  python3 -I "$APP_DIR/menu.py" "$1" "$2"
+}
+
+# Lädt das PDF, wenn es neuer ist als das zuletzt geladene ($1 = force: auf jeden Fall), und
+# ersetzt menu.js, wenn sich die Menüs geändert haben. Ergebnis in MENU_RESULT. Rückgabe:
+# 0 = erledigt, 1 = Server nicht erreichbar (bald noch einmal versuchen), 2 = kein
+# Tagesmenü eingerichtet, 3 = PDF unbrauchbar (erst ein geändertes PDF wird wieder gelesen).
+update_menu() {
+  local url code rc=0 tmp="$MENU_FILE.tmp$$" since=()
+  MENU_RESULT=""
+  url="$(menu_url)"
+  if [ -z "$url" ]; then MENU_RESULT="kein Tagesmenü eingerichtet (menu im CONFIG)"; return 2; fi
+  if [ "$1" != force ] && [ -f "$MENU_STAMP" ]; then since=(-z "$MENU_STAMP"); fi
+  # -R übernimmt die Änderungszeit des PDFs vom Server, -z fragt mit ihr nach: Ist das PDF
+  # nicht neuer, antwortet der Server mit 304 und schickt nichts
+  if ! code="$(curl -sS -f -m 30 --max-filesize 5000000 -R -A "$PLACES_AGENT" "${since[@]}" \
+                 -w '%{http_code}' -o "$tmp.pdf" "$url" 2>"$tmp.err")"; then
+    MENU_RESULT="$url nicht erreichbar ($(first_line "$tmp.err"))"
+    log "Tagesmenü: $MENU_RESULT"
+    rm -f "$tmp.pdf" "$tmp.err"
+    return 1
+  fi
+  if [ "$code" != 200 ] || [ ! -f "$tmp.pdf" ]; then
+    MENU_RESULT="unverändert"
+  else
+    touch -r "$tmp.pdf" "$MENU_STAMP"
+    if MENU_RESULT="$(write_menu "$tmp.pdf" "$tmp.js" 2>"$tmp.err")"; then
+      if cmp -s "$tmp.js" "$MENU_FILE"; then
+        MENU_RESULT="$MENU_RESULT, unverändert"
+      elif mv -f "$tmp.js" "$MENU_FILE"; then
+        log "Tagesmenü: $MENU_RESULT von $url übernommen"
+      fi
+    else
+      MENU_RESULT="PDF von $url verworfen ($(first_line "$tmp.err"))"
+      log "Tagesmenü: $MENU_RESULT"
+      rc=3
+    fi
+  fi
+  rm -f "$tmp.pdf" "$tmp.js" "$tmp.err"
+  return $rc
+}
+
 # Wert aus dem Block "rest" des CONFIG ($1 = sed-Ausdruck). Auf den Block beschränkt,
 # weil "enabled", "from" und "to" auch in anderen Blöcken vorkommen.
 rest_value() {
@@ -186,6 +244,25 @@ places_loop() {
     if [ ! -f "$PLACES_FILE" ] \
        || { [ "$(date -r "$PLACES_FILE" +%F)" != "$(date +%F)" ] && [ ! "$(date +%H:%M)" \< "${at:-07:00}" ]; }; then
       update_places || sleep 540
+    fi
+    sleep 60
+  done
+}
+
+# Läuft neben dem Kiosk: fragt alle MENU_INTERVAL Sekunden nach, ob es ein neues PDF gibt.
+# Beim Start wird es auf jeden Fall geladen, damit nach einem Update von menu.py die Menüs
+# neu gelesen werden. War der Server nicht erreichbar, folgt der nächste Versuch nach
+# 5 Minuten. In der Ruhezeit fragt es nie nach.
+menu_loop() {
+  local next=0 mode=force
+  while true; do
+    if [ "$SECONDS" -ge "$next" ] && ! is_rest_now; then
+      update_menu "$mode"
+      if [ $? = 1 ]; then
+        next=$((SECONDS + 300))
+      else
+        next=$((SECONDS + MENU_INTERVAL)); mode=""
+      fi
     fi
     sleep 60
   done
@@ -284,8 +361,13 @@ run_loop() {
     stats_loop >/dev/null 2>&1 &
     STATS_PID=$!
   fi
+  MENU_PID=""
+  if [ "$MENU_INTERVAL" -gt 0 ] && [ -n "$(menu_url)" ]; then
+    menu_loop >/dev/null 2>&1 &
+    MENU_PID=$!
+  fi
   WATCH_PID=""
-  trap 'kill "$PLACES_PID" $STATS_PID $WATCH_PID 2>/dev/null; rm -f "$PID_FILE" "$STATS_FILE" "$STATS_FILE.tmp"; log "Kiosk-Schleife beendet"' EXIT
+  trap 'kill "$PLACES_PID" $STATS_PID $MENU_PID $WATCH_PID 2>/dev/null; rm -f "$PID_FILE" "$STATS_FILE" "$STATS_FILE.tmp" "$MENU_STAMP"; log "Kiosk-Schleife beendet"' EXIT
   rm -f "$STOP_FLAG"
   if [ -n "$WAYLAND_DISPLAY" ]; then SESSION="Wayland"; else SESSION="X11"; fi
   log "Kiosk-Schleife gestartet (PID $$, $BROWSER, $SESSION)"
@@ -386,6 +468,14 @@ case "${1:-run}" in
     if update_places; then echo "Restaurantliste aktualisiert: $PLACES_FILE"
     else echo "Restaurantliste konnte nicht geladen werden. Grund: $0 log" >&2; exit 1; fi
     ;;
+  menu)
+    update_menu force
+    case $? in
+      0) echo "Tagesmenü: $MENU_RESULT ($MENU_FILE)" ;;
+      1) echo "Tagesmenü konnte nicht geladen werden: $MENU_RESULT" >&2; exit 1 ;;
+      *) echo "Tagesmenü: $MENU_RESULT" >&2; exit 1 ;;
+    esac
+    ;;
   status)
     if loop_running; then echo "Kiosk läuft (PID $(cat "$PID_FILE"))."; else echo "Kiosk läuft nicht."; fi
     if [ -f "$STOP_FLAG" ]; then echo "Wartungsmodus aktiv."; fi
@@ -397,7 +487,7 @@ case "${1:-run}" in
     echo "Fehlerausgabe von Chromium: $BROWSER_LOG (letzter Lauf: $BROWSER_LOG.1)"
     ;;
   *)
-    echo "Aufruf: $0 {run|stop|start|status|places|log}" >&2
+    echo "Aufruf: $0 {run|stop|start|status|places|menu|log}" >&2
     exit 2
     ;;
 esac
