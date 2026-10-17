@@ -2011,7 +2011,7 @@
   }
 
   // menu.js einlesen (als Script wie places.js). Fehlt die Datei, gibt es kein Tagesmenü.
-  // kiosk.sh fragt alle 30 Minuten nach einem neuen PDF; hier wird alle 5 Minuten nachgesehen.
+  // kiosk.sh fragt einmal pro Stunde nach einem neuen PDF; hier wird alle 5 Minuten nachgesehen.
   function loadMenu() {
     if (menuLoading) return;
     menuLoading = true;

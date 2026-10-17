@@ -156,7 +156,7 @@ update_places() {
 # sie als menu.js neben die Seite. Das PDF enthält meist mehrere Tage im Voraus; die Seite
 # zeigt nur das Menü mit dem heutigen Datum.
 MENU_FILE="$APP_DIR/menu.js"
-MENU_INTERVAL=1800                                 # Sekunden zwischen zwei Nachfragen (0 = aus)
+MENU_INTERVAL=3600                                 # Sekunden zwischen zwei Nachfragen (0 = aus)
 MENU_STAMP="$RUN_DIR/track-o-mat-menu.stamp"       # trägt die Änderungszeit des zuletzt geladenen PDFs
 
 menu_url() {

@@ -589,7 +589,7 @@ Gibt es kein Menü für heute (Montag, Wochenende oder ein PDF, das noch die alt
 enthält), ist Pizza Züri eine gewöhnliche Zeile, und Antippen bewirkt nichts. Nach
 Mitternacht schliesst sich das Fenster von selbst.
 
-`kiosk.sh` lädt das PDF beim Start und fragt danach alle 30 Minuten (`MENU_INTERVAL`)
+`kiosk.sh` lädt das PDF beim Start und fragt danach einmal pro Stunde (`MENU_INTERVAL`)
 nach, ob es sich geändert hat. Solange es gleich bleibt, antwortet der Server ohne Daten.
 In der Ruhezeit fragt es nie nach. Ein neues PDF liest `menu.py` (braucht nur `python3`,
 keine weiteren Pakete) und legt die Menüs aller Tage darin als `menu.js` neben die
