@@ -978,8 +978,9 @@
       },                                          // ↑ warme Küche laut pizzazueri.ch (Stand Oktober 2026)
       // Tagesmenü: Antippen dieses Lokals zeigt die Menüs von heute. kiosk.sh holt das PDF unter
       // url, liest die Menüs heraus und legt sie als menu.js ab (auf einer Zeile lassen). Antippbar
-      // ist das Lokal nur, wenn das PDF ein Menü mit dem heutigen Datum enthält.
-      menu: { place: 'Pizza Züri', url: 'https://pizzazueri.ch/wp-content/uploads/Tagesmenu.pdf' }
+      // ist das Lokal nur, wenn das PDF ein passendes Menü enthält: bis until das von heute
+      // (Mittagsmenü), ab until das von morgen ('' = immer das von heute).
+      menu: { place: 'Pizza Züri', url: 'https://pizzazueri.ch/wp-content/uploads/Tagesmenu.pdf', until: '14:00' }
     },
     // Ruhezeit: keine Abfragen; statt der Liste ein dunkler Ruhebildschirm mit Uhr. Antippen
     // weckt die Anzeige nicht. kiosk.sh liest diesen Block ebenfalls und holt in der
@@ -1112,7 +1113,8 @@
   var menuDays = [];         // Tagesmenüs aus menu.js: [{ date: 'JJJJ-MM-TT', items: [...] }]
   var menuLoading = false;
   var nextMenuAt = 0;        // nächstes Nachsehen, ob menu.js neuer ist
-  var menuShown = '';        // Datum des Tagesmenüs, das gerade offen ist
+  var menuShown = '';        // welches Menü gerade offen ist (menuKey), '' = keines
+  var menuNow = '';          // welches Menü zuletzt galt (menuKey)
   var foodFilter = 'open';   // 'open' (jetzt offen) oder 'all'
   var foodPage = 0;
   var nightActive = null;    // aktuelles Farbschema (null = noch nicht gesetzt)
@@ -1799,8 +1801,7 @@
     return ('0' + Math.floor(min / 60)).slice(-2) + ':' + ('0' + min % 60).slice(-2);
   }
 
-  // Status eines Lokals zum Zeitpunkt now: { state: 'open'|'closed'|'unknown', when: Text,
-  // firstToday: geschlossen, öffnet heute aber noch zum ersten Mal (also "am Morgen") }
+  // Status eines Lokals zum Zeitpunkt now: { state: 'open'|'closed'|'unknown', when: Text }
   function openState(week, now) {
     if (!week) return { state: 'unknown', when: '' };
     var p = {}, parts = fmtDayParts.formatToParts(new Date(now));
@@ -1822,8 +1823,7 @@
       }
       if (best >= 0) {
         var label = off === 0 ? '' : off === 1 ? 'morgen ' : DAYS_DE[(day + off) % 7] + ' ';
-        var first = off === 0 && list.every(function (sp) { return sp[0] > min; });
-        return { state: 'closed', when: 'ab ' + label + clockText(best), firstToday: first };
+        return { state: 'closed', when: 'ab ' + label + clockText(best) };
       }
     }
     return { state: 'closed', when: '' };
@@ -1906,23 +1906,21 @@
   }
 
   // Liste der Lokale: offene zuerst, innerhalb davon nach Distanz (ein Lokal mit Tagesmenü
-  // vorne); seitenweise geblättert
+  // ganz vorne); seitenweise geblättert
   function renderFood() {
-    var now = Date.now(), list = [], i;
+    var now = Date.now(), list = [], i, current = currentMenu(now);
     var openCount = 0;
     for (i = 0; i < places.length; i++) {
-      var st = openState(places[i].week, now), menu = hasMenu(places[i], now);
-      // Ein Lokal mit Tagesmenü von heute erscheint auch am Morgen, bevor es öffnet, unter
-      // "Jetzt offen", damit man nachsehen kann, was es gibt
-      var top = menu && (st.state === 'open' || !!st.firstToday);
+      var st = openState(places[i].week, now);
+      // Ein Lokal mit gültigem Tagesmenü steht ganz oben, auch wenn es gerade geschlossen ist,
+      // damit man nachsehen kann, was es gibt (sonst wäre es oft erst auf der letzten Seite)
+      var menu = isMenuPlace(places[i]) && !!current;
       if (st.state === 'open') openCount++;
-      if (foodFilter === 'all' || st.state === 'open' || top) list.push({ place: places[i], st: st, menu: menu, top: top });
+      if (foodFilter === 'all' || st.state === 'open' || menu) list.push({ place: places[i], st: st, menu: menu });
     }
     var rank = { open: 0, closed: 1, unknown: 2 };
-    // Ein Lokal mit Tagesmenü von heute steht ganz oben (offen oder vor der Öffnung) bzw.
-    // zuoberst in seiner Gruppe, sonst wäre es oft erst auf der letzten Seite zu finden
     list.sort(function (a, b) {
-      return b.top - a.top || rank[a.st.state] - rank[b.st.state] || b.menu - a.menu || a.place.dist - b.place.dist;
+      return b.menu - a.menu || rank[a.st.state] - rank[b.st.state] || a.place.dist - b.place.dist;
     });
 
     var pages = Math.max(1, Math.ceil(list.length / rowCount));
@@ -1937,7 +1935,7 @@
     }
     for (i = foodPage * rowCount; i < list.length && i < (foodPage + 1) * rowCount; i++) {
       var it = list[i], row;
-      if (look === 'comic') { frag.appendChild(comicFoodRow(it)); continue; }
+      if (look === 'comic') { frag.appendChild(comicFoodRow(it, current)); continue; }
       row = el('div', 'row food');
       var cState = el('div');
       cState.appendChild(el('div', 'f-state ' + it.st.state,
@@ -1948,7 +1946,7 @@
       if (it.menu) {
         var name = el('div', 'f-name has-menu');
         name.appendChild(el('span', 't', it.place.name));
-        name.appendChild(el('span', 'f-menu', 'Tagesmenü ›'));
+        name.appendChild(el('span', 'f-menu', current.tomorrow ? 'Menü morgen ›' : 'Tagesmenü ›'));
         cPlace.appendChild(name);
         row.setAttribute('data-action', 'menu');
       } else cPlace.appendChild(el('div', 'f-name', it.place.name));
@@ -1974,7 +1972,7 @@
   }
 
   // "OFFEN | Name  bis 22:00 · Chinesisch ......... 47 M"
-  function comicFoodRow(it) {
+  function comicFoodRow(it, current) {
     var row = el('div', 'row'), panel = el('div', 'cpanel food'), state = it.st.state;
     var cState = el('div');
     cState.appendChild(el('span', 'badge f-' + state, state === 'open' ? 'offen' : state === 'closed' ? 'zu' : '?'));
@@ -1982,7 +1980,7 @@
     var go = el('div', 'c-go'), kind = kindText(it.place);
     go.appendChild(el('span', 'd-name', it.place.name));
     if (it.menu) {
-      go.appendChild(el('span', 'd-menu', 'Tagesmenü'));
+      go.appendChild(el('span', 'd-menu', current.tomorrow ? 'Menü morgen' : 'Tagesmenü'));
       row.setAttribute('data-action', 'menu');
     }
     go.appendChild(el('span', 'd-time shrink', (it.st.when ? it.st.when + ' · ' : '') + kind));
@@ -1998,21 +1996,35 @@
     year: 'numeric', month: '2-digit', day: '2-digit', timeZone: CONFIG.timeZone
   });
 
-  // Menü mit dem heutigen Datum (Europe/Zurich) oder null
-  function todayMenu(now) {
-    var p = {}, parts = fmtDayKey.formatToParts(new Date(now)), i;
-    for (i = 0; i < parts.length; i++) p[parts[i].type] = parts[i].value;
-    var key = p.year + '-' + p.month + '-' + p.day;
-    for (i = 0; i < menuDays.length; i++) {
+  // Datum als "JJJJ-MM-TT" in Europe/Zurich, plus days Tage
+  function dateKey(now, days) {
+    var p = {}, parts = fmtDayKey.formatToParts(new Date(now));
+    for (var i = 0; i < parts.length; i++) p[parts[i].type] = parts[i].value;
+    return new Date(Date.UTC(+p.year, +p.month - 1, +p.day + days)).toISOString().slice(0, 10);
+  }
+
+  // Menü, das jetzt gilt: bis menu.until das von heute, danach das von morgen.
+  // Ergebnis { day, tomorrow } oder null, wenn das PDF für diesen Tag keines enthält.
+  function currentMenu(now) {
+    var M = CONFIG.restaurants.menu;
+    if (!M || !M.place) return null;
+    var tomorrow = !!M.until && zurichParts(now).time >= M.until, key = dateKey(now, tomorrow ? 1 : 0);
+    for (var i = 0; i < menuDays.length; i++) {
       var day = menuDays[i];
-      if (day && day.date === key && Array.isArray(day.items) && day.items.length) return day;
+      if (day && day.date === key && Array.isArray(day.items) && day.items.length) return { day: day, tomorrow: tomorrow };
     }
     return null;
   }
 
-  function hasMenu(place, now) {
+  // Kennung des gültigen Menüs: wechselt um until und um Mitternacht
+  function menuKey(now) {
+    var cur = currentMenu(now);
+    return cur ? cur.day.date + (cur.tomorrow ? '+' : '') : '';
+  }
+
+  function isMenuPlace(place) {
     var M = CONFIG.restaurants.menu;
-    return !!(M && M.place && place.osmName === M.place && todayMenu(now));
+    return !!(M && M.place && place.osmName === M.place);
   }
 
   // menu.js einlesen (als Script wie places.js). Fehlt die Datei, gibt es kein Tagesmenü.
@@ -2046,11 +2058,12 @@
     return row;
   }
 
-  // Öffnet das Tagesmenü, aber nur, wenn eines mit dem heutigen Datum vorliegt
+  // Öffnet das gültige Menü (von heute oder ab until von morgen), sonst nichts
   function openMenu() {
-    var now = Date.now(), day = todayMenu(now), M = CONFIG.restaurants.menu;
-    if (!day) return;
-    var d = new Date(now), items = day.items.slice(0, 8), frag = document.createDocumentFragment();
+    var now = Date.now(), cur = currentMenu(now), M = CONFIG.restaurants.menu;
+    if (!cur) return;
+    var day = cur.day, ymd = day.date.split('-'), d = new Date(Date.UTC(+ymd[0], ymd[1] - 1, +ymd[2], 12));
+    var items = day.items.slice(0, 8), frag = document.createDocumentFragment();
     $('menu-place').textContent = CONFIG.restaurants.rename[M.place] || M.place;
     $('menu-date').textContent = fmtWeekday.format(d) + ', ' + fmtDate.format(d);
 
@@ -2072,12 +2085,16 @@
         ['zu ' + withStarter.join(' und ').replace(/ und (?=.* und )/g, ', ')], ''));
     }
     $('menu-items').replaceChildren(frag);
-    menuShown = day.date;
+    menuShown = menuKey(now);
 
     var host = '';
     try { host = new URL(M.url).hostname.replace(/^www\./, ''); } catch (err) { /* ohne Quelle */ }
     $('menu-note').textContent = 'Aus dem Tagesmenü' + (host ? ' auf ' + host : '') + ', ohne Gewähr.';
     openOverlay('menu');
+    if (cur.tomorrow) {
+      $('overlay-title').textContent = 'Menü von morgen';
+      $('overlay-label').textContent = 'Die Menüs von morgen';
+    }
   }
 
   function setView(next) {
@@ -2193,7 +2210,10 @@
     if (overlayMode === 'info' && now >= nextStatsAt) loadStats();
     if (CONFIG.restaurants.enabled && now >= nextPlacesAt) loadPlaces();
     if (CONFIG.restaurants.enabled && CONFIG.restaurants.menu && now >= nextMenuAt) loadMenu();
-    if (overlayMode === 'menu' && (todayMenu(now) || {}).date !== menuShown) closeOverlay();   // nach Mitternacht
+    // Um until und um Mitternacht wechselt das gültige Menü: Liste sofort nachführen
+    var key = menuKey(now);
+    if (key !== menuNow) { menuNow = key; if (view === 'food') renderFood(); }
+    if (overlayMode === 'menu' && key !== menuShown) closeOverlay();
     if (now - lastCountdownAt >= CONFIG.countdownSec * 1000) {
       lastCountdownAt = now;
       refreshCountdown(now);

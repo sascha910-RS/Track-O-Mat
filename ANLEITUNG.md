@@ -566,15 +566,19 @@ berücksichtigt. Falsche Zeiten lassen sich auf openstreetmap.org korrigieren.
 
 ### Tagesmenü
 
-Pizza Züri veröffentlicht sein Tagesmenü als PDF auf pizzazueri.ch. Enthält es ein Menü
-mit dem heutigen Datum, steht in der Restaurantliste neben dem Namen «Tagesmenü ›», und
-das Lokal steht unter «Jetzt offen» zuoberst: über Mittag und auch am Morgen, bevor es
-öffnet (dann mit «geschlossen, ab 11:30»), damit man nachsehen kann, was es gibt. Am
-Nachmittag und am Abend steht es dort nur, wenn es offen ist. Antippen öffnet ein Fenster mit Menu 1, Menu 2, Vegimenu und Tagespizza samt
-Beschreibung und Preis. Haben alle Menüs dieselbe Vorspeise, steht sie einmal am Schluss.
-Gibt es kein Menü für heute (Montag, Wochenende oder ein PDF, das noch die alte Woche
-enthält), ist Pizza Züri eine gewöhnliche Zeile, und Antippen bewirkt nichts. Nach
-Mitternacht schliesst sich das Fenster von selbst.
+Pizza Züri veröffentlicht sein Tagesmenü als PDF auf pizzazueri.ch. Es ist ein
+Mittagsmenü und gilt nur über Mittag (11:30 bis 14:00). Bis 14:00 zeigt die Anzeige
+deshalb das Menü von heute, ab 14:00 das von morgen, sofern das PDF eines für diesen Tag
+enthält. In der Restaurantliste steht dann neben dem Namen «Tagesmenü ›» bzw. «Menü
+morgen ›», und das Lokal steht unter «Jetzt offen» ganz oben, auch wenn es gerade
+geschlossen ist (z. B. «geschlossen, ab 11:30»). So kann man jederzeit nachsehen, was es
+gibt. Antippen öffnet ein Fenster mit Menu 1, Menu 2, Vegimenu und Tagespizza samt
+Beschreibung und Preis; beim Menü von morgen heisst es «Menü von morgen» und nennt das
+Datum. Haben alle Menüs dieselbe Vorspeise, steht sie einmal am Schluss. Gibt es kein
+passendes Menü (etwa am Freitagnachmittag, weil samstags keines gilt, oder bei einem PDF,
+das noch die alte Woche enthält), ist Pizza Züri eine gewöhnliche Zeile, und Antippen
+bewirkt nichts. Ein offenes Menüfenster schliesst sich um 14:00 und um Mitternacht von
+selbst.
 
 `kiosk.sh` lädt das PDF beim Start und fragt danach einmal pro Stunde (`MENU_INTERVAL`)
 nach, ob es sich geändert hat. Solange es gleich bleibt, antwortet der Server ohne Daten.
@@ -590,10 +594,11 @@ Datum, wird die Seite übersprungen. Jedes neue Menü und jeder Fehler steht im 
 ```
 
 Eingestellt ist das im Block `restaurants` des `CONFIG`: `menu` nennt das Lokal (exakter
-Name aus OpenStreetMap) und die Adresse des PDFs, `menu: null` schaltet das Tagesmenü
-ab. Damit Pizza Züri über Mittag als offen gilt, stehen seine Öffnungszeiten (warme
-Küche laut pizzazueri.ch) in `hours`, weil sie in OpenStreetMap fehlen. Ändern sie sich,
-dort nachführen.
+Name aus OpenStreetMap), die Adresse des PDFs und mit `until` die Uhrzeit, ab der das
+Menü von morgen statt dem von heute erscheint (`''` = immer das von heute). `menu: null` schaltet das Tagesmenü ab.
+Damit Pizza Züri über Mittag als offen gilt, stehen seine Öffnungszeiten (warme Küche
+laut pizzazueri.ch) in `hours`, weil sie in OpenStreetMap fehlen. Ändern sie sich, dort
+nachführen.
 
 Stellt das Lokal sein PDF grundlegend um, findet `menu.py` womöglich keine Menüs mehr.
 Dann bleibt das bisherige `menu.js` stehen, passt aber bald zu keinem Tag mehr, und der
