@@ -622,6 +622,7 @@ desto mehr Abfahrten zeigt die Liste.
 | Display (hochkant betrieben) | Skalierung | Zeilen |
 |---|---|---|
 | 1440×900 → 900×1440 | 1,17 | 13 |
+| 1600×1200 → 1200×1600 | 1,56 | 10 |
 | 2048×1536 → 1536×2048 | 2 | 10 |
 
 Die Zeilenzahl ergibt sich aus `rowHeight` (Mindesthöhe einer Zeile, voreingestellt 58).
