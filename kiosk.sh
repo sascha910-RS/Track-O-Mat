@@ -14,9 +14,7 @@ PROFILE="$HOME/.config/track-o-mat-chromium"       # eigenes Profil, getrennt vo
 RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}"
 STOP_FLAG="$RUN_DIR/track-o-mat.stop"              # existiert = Wartungsmodus (verschwindet beim Reboot)
 PID_FILE="$RUN_DIR/track-o-mat.pid"
-WARM_FLAG="$RUN_DIR/track-o-mat.warm"              # existiert = seit dem Booten schon einmal gestartet
 RESTART_DELAY=2
-WARMUP_SEC=0                                       # einmaliger Neustart nach dem Booten (0 = aus, Pi 3: 30)
 
 # Ressourcen-Monitor im Info-Fenster: misst CPU-Auslastung und belegten Arbeitsspeicher und
 # legt sie als kleine Script-Datei ab, die die Seite liest (sie darf /proc nicht selbst lesen).
@@ -413,14 +411,6 @@ run_loop() {
     PREFS="$PROFILE/Default/Preferences"
     if [ -f "$PREFS" ]; then
       sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' "$PREFS"
-    fi
-
-    # Auf dem Pi 3 blieb das Chromium-Fenster beim ersten Start nach dem Booten leer;
-    # erst der zweite Start zeigte die Seite. Mit WARMUP_SEC > 0 wird der erste Start
-    # deshalb einmal beendet. Der Pi 4 braucht das nicht.
-    if [ "$WARMUP_SEC" -gt 0 ] && [ ! -f "$WARM_FLAG" ]; then
-      touch "$WARM_FLAG"
-      (sleep "$WARMUP_SEC"; pkill -f -- "--user-data-dir=$PROFILE") &
     fi
 
     # Fehlerausgabe des letzten Laufs aufbewahren: sie zeigt, warum Chromium beendet wurde

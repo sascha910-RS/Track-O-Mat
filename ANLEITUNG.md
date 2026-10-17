@@ -22,14 +22,6 @@ Besonderheiten des Pi 4:
   geschlossenen Gehäuse hinter dem Display Kühlkörper oder ein Gehäuse mit Kühlung
   verwenden (Kontrolle: `vcgencmd measure_temp`).
 
-### Umzug von einem bereits eingerichteten Pi 3
-
-Die SD-Karte eines mit dieser Anleitung eingerichteten Pi 3 (64-Bit-System) lässt sich
-direkt in den Pi 4 stecken: Autostart, Tastenkürzel, WLAN und die App-Dateien bleiben
-erhalten. Danach nur `sudo apt update && sudo apt full-upgrade` ausführen und die
-Kontrollen aus Schritt 9 durchgehen. Mit einem 32-Bit-System geht das ebenfalls;
-empfohlen ist dann aber eine Neuinstallation mit 64 Bit.
-
 ## Platzhalter
 
 Die Codeblöcke dieser Anleitung enthalten drei Platzhalter. Ermittle die Werte zuerst
@@ -221,12 +213,6 @@ neu. Die Einstellungen stehen am Anfang von `kiosk.sh`:
 | `DAILY_RESTART="03:35"` | täglicher Neustart von Chromium (`""` = aus) |
 
 Der Wächter braucht `curl`; es ist auf Raspberry Pi OS vorinstalliert.
-
-Auf dem Pi 4 zeigt Chromium die Seite direkt beim ersten Start. Auf einem Pi 3 blieb das
-Fenster beim ersten Start nach dem Booten leer; erst der zweite Start zeigte die Seite.
-Dafür gibt es in `kiosk.sh` die Einstellung `WARMUP_SEC` (voreingestellt `0` = aus): Mit
-`WARMUP_SEC=30` beendet das Skript Chromium einmal pro Boot nach 30 Sekunden und startet
-ihn neu.
 
 ### Wayland (labwc)
 
