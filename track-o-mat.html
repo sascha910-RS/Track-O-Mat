@@ -223,8 +223,19 @@
   }
   .badge.k-s { background: var(--tile); }
   .badge.k-fern { background: var(--accent); }
-  .c-dest {
+  .c-dest { min-width: 0; }
+  .c-dest .d-to {
     font-size: 28px;
+    line-height: 31px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* die nächsten Halte, klein unter dem Ziel */
+  .c-via {
+    font-size: 15px;
+    line-height: 18px;
+    color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -659,6 +670,10 @@
   .d-time { flex: 0 0 auto; margin-left: 10px; font-size: 15px; font-weight: 700; }
   /* Restaurants: der Name hat Vorrang, die Angaben dahinter werden bei Platzmangel gekürzt */
   .cpanel.food .d-name { flex: 0 0 auto; max-width: 64%; }
+  .c-stack { min-width: 0; }
+  .c-stack .d-name { line-height: 25px; }
+  .c-stack .d-dots { transform: translateY(-3px); }
+  .d-via { margin-top: -1px; font: 12px/14px Arial, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .d-time.shrink { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .cpanel.food .d-dots { min-width: 0; margin-right: 6px; }
   .d-delay {
@@ -667,6 +682,7 @@
     font: 700 14px/20px Arial, sans-serif;
     color: var(--c-paper); background: var(--c-text);
   }
+  #hero-sub .h-via { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 15px/24px Arial, sans-serif; }
   #hero-sub .d-delay { margin-left: 2px; font-size: 16px; line-height: 23px; }
   .d-dots { flex: 1 1 0; min-width: 12px; margin: 0 10px; border-bottom: 4px dotted var(--c-text); transform: translateY(-5px); }
   .c-gleis { font: 31px/36px var(--f-comic); letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; transform: skewX(-6deg); }
@@ -949,6 +965,8 @@
     minDelayMin: 1,                               // Verspätung ab … Minuten anzeigen
     runMin: 3,                                    // bis … Minuten vor tatsächlicher Abfahrt (inkl. Verspätung) Hinweis zeigen (0 = aus)
     runText: 'rennen :-)',
+    nextStops: 2,                                 // so viele nächste Halte klein unter dem Ziel (0 = aus)
+    stopPrefix: 'Zürich ',                        // fällt dort am Anfang eines Haltenamens weg ("Zürich HB" -> "HB")
     idleResetSec: 120,                            // ohne Berührung zurück auf Standardfilter (0 = aus)
     nightlyReload: '03:30',                       // Seite einmal pro Nacht neu laden ('' = aus)
     mouseCursorHideSec: 5,                        // Mauszeiger nach … Sekunden ohne Mausbewegung ausblenden
@@ -1175,20 +1193,25 @@
     if (num.length > 3) num = '';
     var line = kind === 's' ? cat + num : (num ? cat + ' ' + num : cat);
 
-    // Richtungsfilter: Ziel und alle späteren Halte merken
+    // Richtungsfilter: Ziel und alle späteren Halte merken. Die nächsten Halte (ohne das
+    // Ziel) stehen klein unter dem Ziel; der erste Eintrag der Liste ist diese Station selbst.
     var to = j.to || '';
-    var stops = {};
+    var stops = {}, next = [], pre = CONFIG.stopPrefix;
     stops[to] = true;
     var pass = j.passList || [];
     for (var i = 1; i < pass.length; i++) {
-      if (pass[i].station && pass[i].station.name) stops[pass[i].station.name] = true;
+      var name = pass[i].station && pass[i].station.name;
+      if (!name) continue;
+      stops[name] = true;
+      if (name !== to && next.length < CONFIG.nextStops) next.push(pre && name.indexOf(pre) === 0 ? name.slice(pre.length) : name);
     }
+    var via = !CONFIG.nextStops ? '' : next.length ? 'via ' + next.join(', ') : pass.length > 1 ? 'ohne Zwischenhalt' : '';
 
     return {
       key: (j.name || line) + '|' + planned + '|' + to,
       line: line || '?', kind: kind, to: to,
       planned: planned, real: real, delay: delay,
-      platform: now, platformChanged: changed, stops: stops
+      platform: now, platformChanged: changed, stops: stops, via: via
     };
   }
 
@@ -1265,7 +1288,10 @@
       cLine.appendChild(el('span', 'badge k-' + e.kind, e.line));
       row.appendChild(cLine);
 
-      row.appendChild(el('div', 'c-dest', e.to));
+      var cDest = el('div', 'c-dest');
+      cDest.appendChild(el('div', 'd-to', e.to));
+      if (e.via) cDest.appendChild(el('div', 'c-via', e.via));
+      row.appendChild(cDest);
 
       var cPlat = el('div', 'c-platform');
       cPlat.appendChild(el('span', 'platform' + (e.platformChanged ? ' changed' : ''), e.platform || '–'));
@@ -1305,7 +1331,12 @@
     go.appendChild(el('span', 'd-time', hhmm(e.planned)));
     if (box) go.appendChild(box);
     go.appendChild(el('span', 'd-dots'));
-    panel.appendChild(go);
+    if (e.via) {                                 // die nächsten Halte klein unter dem Ziel
+      var stack = el('div', 'c-stack');
+      stack.appendChild(go);
+      stack.appendChild(el('div', 'd-via', e.via));
+      panel.appendChild(stack);
+    } else panel.appendChild(go);
 
     panel.appendChild(el('div', 'c-gleis' + (e.platformChanged ? ' changed' : ''),
       e.platform ? 'Gleis ' + e.platform : '–'));
@@ -1328,6 +1359,7 @@
     if (box) sub.appendChild(box);
     sub.appendChild(el('span', null, '·'));
     sub.appendChild(el('span', e.platformChanged ? 'changed' : null, e.platform ? 'Gleis ' + e.platform : 'Gleis –'));
+    if (e.via) { sub.appendChild(el('span', null, '·')); sub.appendChild(el('span', 'h-via', e.via)); }
     $('hero-sub').replaceChildren(sub);
 
     var soon = e.real - now < 45000, mins = Math.ceil((e.real - now) / 60000);

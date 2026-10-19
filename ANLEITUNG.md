@@ -498,6 +498,11 @@ für einen Umlauf 58,5 Sekunden (`clockSweepSec`), wartet dann oben und läuft w
 sobald der Minutenzeiger zur vollen Minute springt. Die Zeigerfarben folgen dem
 Farbschema, im Nachtmodus ist das Zifferblatt dunkel.
 
+Unter jedem Ziel stehen klein die zwei nächsten Halte nach der Station, etwa «via
+Schlieren, Glanzenberg» (`nextStops`, `0` = aus). «Zürich» am Anfang eines Haltenamens
+fällt dort weg (`stopPrefix`), aus «Zürich HB» wird «HB». Hält ein Zug bis zum Ziel
+nirgends, steht «ohne Zwischenhalt».
+
 ### Ressourcen-Monitor
 
 Das Info-Fenster zeigt in der Zeile «System» die CPU-Auslastung und den belegten
