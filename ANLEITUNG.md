@@ -401,6 +401,39 @@ Dingen:
 Die App selbst übersteht Unterbrüche: Sie zeigt die letzten Daten mit dem roten Hinweis
 «Keine Verbindung» und versucht es alle 30 Sekunden erneut.
 
+### Automatisch wieder verbinden
+
+Bricht das WLAN ab, etwa weil der Router neu startet, verbindet NetworkManager den Pi
+von selbst neu, gibt aber nach einigen vergeblichen Versuchen auf. Dann bleibt der Pi
+offline, bis jemand von Hand verbindet. Dafür hat `kiosk.sh` einen Netzwerk-Wächter: Er
+fragt NetworkManager jede Minute nach dem Zustand. Nach 3 Minuten ohne Verbindung stösst
+er selbst eine Verbindung an, danach alle 5 Minuten erneut und schaltet dabei das WLAN
+kurz aus und wieder ein. Er läuft auch in der Ruhezeit, damit der Pi am Morgen online
+ist, und fragt dabei nichts im Netz ab. Jeder Eingriff steht im Protokoll
+(`kiosk.sh log`), `kiosk.sh status` zeigt den aktuellen Zustand.
+
+| Einstellung in `kiosk.sh` | Bedeutung |
+|---|---|
+| `NET_INTERVAL=60` | Sekunden zwischen zwei Kontrollen (`0` = Wächter aus) |
+| `NET_STALL=3` | so viele Kontrollen ohne Verbindung, bis er eingreift |
+| `NET_RETRY=5` | danach alle 5 Kontrollen ein neuer Versuch |
+
+Zusätzlich lässt sich NetworkManager selbst so einstellen, dass er nie aufgibt. Das ist
+einmalig und braucht `sudo`. Zuerst den Namen der WLAN-Verbindung nachsehen (Typ
+`802-11-wireless`), dann für diese Verbindung unbegrenzte Versuche setzen (`0` =
+unbegrenzt, voreingestellt sind 4):
+
+```bash
+nmcli -t -f NAME,TYPE connection show
+sudo nmcli connection modify "NAME" connection.autoconnect-retries 0
+```
+
+Warum die Verbindung abgebrochen ist, zeigt das Protokoll von NetworkManager:
+
+```bash
+journalctl -u NetworkManager --since "-2 days" | grep -E "wlan0|reason|secrets" | tail -40
+```
+
 ## 9. Neustart und Kontrolle
 
 ```bash
@@ -446,7 +479,7 @@ leerer Bildschirm. `Ctrl+Alt+T` öffnet dann ein Terminal.
 
 | Datei | Inhalt |
 |---|---|
-| `kiosk.log` | jeder Start und jedes Ende von Chromium mit Rückgabewert und Laufzeit, Eingriffe des Wächters, Wartung, jede Restaurant-Abfrage mit Ergebnis oder Fehlergrund, jedes neue Tagesmenü und jeder Fehler dabei |
+| `kiosk.log` | jeder Start und jedes Ende von Chromium mit Rückgabewert und Laufzeit, Eingriffe des Wächters und des Netzwerk-Wächters, Wartung, jede Restaurant-Abfrage mit Ergebnis oder Fehlergrund, jedes neue Tagesmenü und jeder Fehler dabei |
 | `chromium.log` | Fehlerausgabe von Chromium im laufenden Betrieb |
 | `chromium.log.1` | Fehlerausgabe des vorherigen Laufs; sie zeigt, warum Chromium beendet wurde |
 

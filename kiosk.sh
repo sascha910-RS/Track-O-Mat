@@ -38,6 +38,17 @@ WATCH_INTERVAL=30                                  # Sekunden zwischen zwei Kont
 WATCH_STALL=5                                      # so viele Kontrollen ohne neuen Takt = Neustart (5 x 30 s)
 DAILY_RESTART="03:35"                              # Chromium einmal pro Tag neu starten ('' = aus)
 
+# Netzwerk-Wächter: Verliert der Pi das WLAN (etwa wenn der Router neu startet), versucht
+# NetworkManager einige Male, sich neu zu verbinden, und gibt dann auf. Der Pi bliebe
+# offline, bis jemand von Hand verbindet. Der Wächter fragt NetworkManager jede Minute
+# nach dem Zustand und stösst nach NET_STALL Kontrollen ohne Verbindung selbst eine
+# Verbindung an, danach alle NET_RETRY Kontrollen erneut (ab dem zweiten Versuch mit
+# kurzem Aus- und Einschalten des WLANs). Er läuft auch in der Ruhezeit, damit der Pi am
+# Morgen online ist; er fragt dabei nichts im Netz ab.
+NET_INTERVAL=60                                    # Sekunden zwischen zwei Kontrollen (0 = aus)
+NET_STALL=3                                        # so viele Kontrollen ohne Verbindung, bis er eingreift
+NET_RETRY=5                                        # danach alle … Kontrollen ein neuer Versuch
+
 # Protokoll: Starts, Abstürze, Eingriffe des Wächters und jede Restaurant-Abfrage
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/track-o-mat"
 LOG_FILE="$LOG_DIR/kiosk.log"                      # ab LOG_MAX wird es zu kiosk.log.1
@@ -298,6 +309,47 @@ stats_loop() {
   done
 }
 
+# Zustand laut NetworkManager: "connected", "connecting", "disconnected", "asleep" …
+net_state() {
+  nmcli -t -f STATE general 2>/dev/null | head -n 1
+}
+
+# Läuft neben dem Kiosk, siehe NET_INTERVAL
+net_loop() {
+  local state down=0 tries=0 dev out since
+  while sleep "$NET_INTERVAL"; do
+    state="$(net_state)"
+    case "$state" in
+      connected*)
+        if [ "$down" -ge "$NET_STALL" ]; then
+          log "Netzwerk: wieder verbunden nach $((down * NET_INTERVAL / 60)) min ohne Verbindung"
+        fi
+        down=0; tries=0
+        continue
+        ;;
+    esac
+    down=$((down + 1))
+    if [ "$down" -lt "$NET_STALL" ] || [ $(( (down - NET_STALL) % NET_RETRY )) != 0 ]; then continue; fi
+    tries=$((tries + 1))
+    since="seit $((down * NET_INTERVAL / 60)) min ohne Verbindung (NetworkManager: ${state:-keine Antwort})"
+    dev="$(nmcli -t -f DEVICE,TYPE device 2>/dev/null | sed -n 's/^\(.*\):wifi$/\1/p' | head -n 1)"
+    if [ -z "$dev" ]; then
+      log "Netzwerk: $since, kein WLAN-Gerät gefunden"
+      continue
+    fi
+    if [ "$tries" -ge 2 ]; then
+      nmcli radio wifi off >/dev/null 2>&1; sleep 5
+      nmcli radio wifi on >/dev/null 2>&1; sleep 10
+    fi
+    # Von Hand angestossen hebt NetworkManager auch eine Sperre nach zu vielen Fehlversuchen auf
+    if out="$(nmcli -w 60 device connect "$dev" 2>&1)"; then
+      log "Netzwerk: $since, Versuch $tries: $dev verbunden"
+    else
+      log "Netzwerk: $since, Versuch $tries auf $dev gescheitert ($(printf '%s' "$out" | head -n 1 | cut -c1-160))"
+    fi
+  done
+}
+
 # Läuft neben jedem Chromium-Start: prüft den Takt der Seite, löst den täglichen Neustart
 # aus und begrenzt die Fehlerausgabe von Chromium. Beendet Chromium nur; den Neustart
 # übernimmt die Schleife in run_loop.
@@ -364,8 +416,17 @@ run_loop() {
     menu_loop >/dev/null 2>&1 &
     MENU_PID=$!
   fi
+  NET_PID=""
+  if [ "$NET_INTERVAL" -gt 0 ]; then
+    if command -v nmcli >/dev/null 2>&1; then
+      net_loop >/dev/null 2>&1 &
+      NET_PID=$!
+    else
+      log "Netzwerk-Wächter aus: nmcli (NetworkManager) nicht gefunden"
+    fi
+  fi
   WATCH_PID=""
-  trap 'kill "$PLACES_PID" $STATS_PID $MENU_PID $WATCH_PID 2>/dev/null; rm -f "$PID_FILE" "$STATS_FILE" "$STATS_FILE.tmp" "$MENU_STAMP"; log "Kiosk-Schleife beendet"' EXIT
+  trap 'kill "$PLACES_PID" $STATS_PID $MENU_PID $NET_PID $WATCH_PID 2>/dev/null; rm -f "$PID_FILE" "$STATS_FILE" "$STATS_FILE.tmp" "$MENU_STAMP"; log "Kiosk-Schleife beendet"' EXIT
   rm -f "$STOP_FLAG"
   if [ -n "$WAYLAND_DISPLAY" ]; then SESSION="Wayland"; else SESSION="X11"; fi
   log "Kiosk-Schleife gestartet (PID $$, $BROWSER, $SESSION)"
@@ -470,6 +531,7 @@ case "${1:-run}" in
     if loop_running; then echo "Kiosk läuft (PID $(cat "$PID_FILE"))."; else echo "Kiosk läuft nicht."; fi
     if [ -f "$STOP_FLAG" ]; then echo "Wartungsmodus aktiv."; fi
     if is_rest_now; then echo "Ruhezeit: keine Abfragen."; fi
+    if command -v nmcli >/dev/null 2>&1; then echo "Netzwerk: $(net_state)"; fi
     echo "Protokoll: $LOG_FILE"
     ;;
   log)
