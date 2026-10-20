@@ -602,44 +602,53 @@ Der Öffnungsstatus ist so gut wie die Angaben in OpenStreetMap: Lokale ohne erf
 Zeiten erscheinen als «unbekannt», Feiertage und Betriebsferien werden nicht
 berücksichtigt. Falsche Zeiten lassen sich auf openstreetmap.org korrigieren.
 
-### Tagesmenü
+### Tagesmenüs
 
-Pizza Züri veröffentlicht sein Tagesmenü als PDF auf pizzazueri.ch. Es ist ein
-Mittagsmenü und gilt nur über Mittag (11:30 bis 14:00). Bis 14:00 zeigt die Anzeige
-deshalb das Menü von heute, ab 14:00 das von morgen, sofern das PDF eines für diesen Tag
-enthält. In der Restaurantliste steht dann neben dem Namen «Tagesmenü ›» bzw. «Menü
-morgen ›», und das Lokal steht unter «Jetzt offen» ganz oben, auch wenn es gerade
-geschlossen ist (z. B. «geschlossen, ab 11:30»). So kann man jederzeit nachsehen, was es
-gibt. Antippen öffnet ein Fenster mit Menu 1, Menu 2, Vegimenu und Tagespizza samt
-Beschreibung und Preis; beim Menü von morgen heisst es «Tagesmenü von morgen» und nennt
-das Datum. Haben alle Menüs dieselbe Vorspeise, steht sie einmal am Schluss. Gibt es kein
-passendes Menü (etwa am Freitagnachmittag, weil samstags keines gilt, oder bei einem PDF,
-das noch die alte Woche enthält), ist Pizza Züri eine gewöhnliche Zeile, und Antippen
-bewirkt nichts. Ein offenes Menüfenster schliesst sich um 14:00 und um Mitternacht von
-selbst.
+Für Pizza Züri und das Migros Restaurant zeigt die Anzeige das Tagesmenü. Beide sind
+Mittagsmenüs: Bis 14:00 erscheint das Menü von heute, ab 14:00 das von morgen, sofern
+eines vorliegt. In der Restaurantliste steht dann neben dem Namen «Tagesmenü ›» bzw.
+«Menü morgen ›», und die Lokale stehen unter «Jetzt offen» ganz oben, auch wenn sie
+gerade geschlossen sind (z. B. «geschlossen, ab 11:30»). So kann man jederzeit nachsehen,
+was es gibt. Antippen öffnet ein Fenster mit den Menüs samt Beschreibung und Preis; beim
+Menü von morgen heisst es «Tagesmenü von morgen» und nennt das Datum. Gibt es kein
+passendes Menü (etwa am Freitagnachmittag, weil samstags keines gilt), ist das Lokal eine
+gewöhnliche Zeile, und Antippen bewirkt nichts. Ein offenes Menüfenster schliesst sich um
+14:00 und um Mitternacht von selbst.
 
-`kiosk.sh` lädt das PDF beim Start und fragt danach einmal pro Stunde (`MENU_INTERVAL`)
-nach, ob es sich geändert hat. Solange es gleich bleibt, antwortet der Server ohne Daten.
-In der Ruhezeit fragt es nie nach. Ein neues PDF liest `menu.py` (braucht nur `python3`,
-keine weiteren Pakete) und legt die Menüs aller Tage darin als `menu.js` neben die
-Seite. Meist steht die ganze Woche im Voraus darin. Jede Seite des PDFs braucht ein
-Datum mit Wochentag, etwa «Dienstag, 20. Oktober 2026». Passt der Wochentag nicht zum
-Datum, wird die Seite übersprungen. Jedes neue Menü und jeder Fehler steht im Protokoll
-(`kiosk.sh log`). Von Hand geht es mit:
+| Lokal | Quelle | Was erscheint |
+|---|---|---|
+| Pizza Züri | PDF auf pizzazueri.ch, eine Seite pro Tag, meist Dienstag bis Freitag im Voraus | Menu 1, Menu 2, Vegimenu, Tagespizza; eine gemeinsame Vorspeise einmal am Schluss |
+| Migros Restaurant | Wochenpläne der Migros Zürich als PDF, verlinkt auf gastro.migros.ch (aktuelle Woche und Folgewoche) | Mittagsmenü und Grill-Combo mit Beilagen, Preis und Herkunft |
+
+Der Menüplan der Migros gilt für alle ihre Restaurants in Zürich; nicht jedes bietet alle
+Menüs an, das steht auch klein unter dem Menü. Das vegetarische Buffet, die «Klassiker»
+und der «Dessert-Hit» stehen im Plan ohne Bezug zu einem Tag und erscheinen deshalb
+nicht.
+
+`kiosk.sh` lädt die PDFs beim Start und fragt danach einmal pro Stunde (`MENU_INTERVAL`)
+nach, ob sich etwas geändert hat; unveränderte PDFs schickt der Server nicht noch einmal.
+Bei Migros liest es dazu die Webseite und holt die dort verlinkten Wochenpläne,
+vergangene Wochen fallen weg. In der Ruhezeit fragt es nie nach. Die PDFs liest `menu.py`
+(braucht nur `python3`, keine weiteren Pakete) und legt die Menüs aller Lokale als
+`menu.js` neben die Seite. Jeder Tag braucht ein Datum mit Wochentag; passt der Wochentag
+nicht zum Datum, wird der Tag übersprungen. Jedes neue Menü und jeder Fehler steht im
+Protokoll (`kiosk.sh log`). Von Hand geht es mit:
 
 ```bash
 ~/track-o-mat/kiosk.sh menu
 ```
 
-Eingestellt ist das im Block `restaurants` des `CONFIG`: `menu` nennt das Lokal (exakter
-Name aus OpenStreetMap), die Adresse des PDFs und mit `until` die Uhrzeit, ab der das
-Menü von morgen statt dem von heute erscheint (`''` = immer das von heute). `menu: null`
-schaltet das Tagesmenü ab. Damit Pizza Züri über Mittag als offen gilt, stehen seine
+Eingestellt ist das im Block `restaurants` des `CONFIG` unter `menus`, ein Lokal pro
+Zeile und die Angaben in dieser Reihenfolge: `place` (exakter Name aus OpenStreetMap),
+`url` (das PDF oder, zusammen mit `pdf`, eine Webseite, auf der die PDFs verlinkt sind,
+deren Name `pdf` enthält), `until` (ab dieser Uhrzeit erscheint das Menü von morgen, `''`
+= immer das von heute) und `note` (kleiner Hinweis unter dem Menü). `menus: []` schaltet
+die Tagesmenüs ab. Damit Pizza Züri über Mittag als offen gilt, stehen seine
 Öffnungszeiten (warme Küche laut pizzazueri.ch) in `hours`, weil sie in OpenStreetMap
 fehlen. Ändern sie sich, dort nachführen.
 
-Stellt das Lokal sein PDF grundlegend um, findet `menu.py` womöglich keine Menüs mehr.
-Dann bleibt das bisherige `menu.js` stehen, passt aber bald zu keinem Tag mehr, und der
+Stellt ein Lokal sein PDF grundlegend um, findet `menu.py` womöglich keine Menüs mehr.
+Dann bleiben die bisherigen Menüs stehen, passen aber bald zu keinem Tag mehr, und der
 Hinweis verschwindet. Den Grund nennt das Protokoll.
 
 ### Bildschirmauflösung

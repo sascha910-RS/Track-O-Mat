@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
-# Track-O-Mat – Tagesmenü aus einem PDF lesen
+# Track-O-Mat – Tagesmenüs aus PDFs lesen
 #
-#   python3 menu.py Tagesmenu.pdf menu.js
+#   python3 menu.py menu.js "Pizza Züri=Tagesmenu.pdf" "Migros Restaurant=kw43.pdf" …
 #
-# Liest aus dem PDF eines Lokals die Menüs pro Tag und schreibt sie als menu.js, das die
-# Seite als Script lädt. kiosk.sh ruft das nach jedem neuen PDF auf. Braucht nur die
-# Standardbibliothek, weil auf dem Pi kein PDF-Werkzeug vorausgesetzt werden kann.
+# Liest aus den PDFs der Lokale die Menüs pro Tag und schreibt sie zusammen als menu.js,
+# das die Seite als Script lädt. kiosk.sh ruft das nach jedem neuen PDF auf. Braucht nur
+# die Standardbibliothek, weil auf dem Pi kein PDF-Werkzeug vorausgesetzt werden kann.
 #
 # Der Text wird nach seiner Position auf der Seite geordnet, nicht nach der Reihenfolge in
 # der Datei: Die ist je nach Programm, mit dem das PDF entstand, durcheinander (im PDF von
 # Pizza Züri stehen auf den Seiten 2–4 Fusszeile zuerst und Datum zuletzt).
 #
-# Erwartet pro Seite ein Datum mit passendem Wochentag ("Dienstag, 20. Oktober 2026") und
-# darunter Zeilen wie "Menu 1", "Vegimenu" oder "Tagespizza", je gefolgt von Gericht,
-# Beschreibung, "Vorspeise: …" und Preis ("CHF 21.50"). Seiten ohne gültiges Datum werden
-# übersprungen. Das PDF kommt aus dem Netz: Alle Grössen sind begrenzt, und menu.js
-# enthält nur Text, der mit json.dumps geschrieben ist, nie Programmcode.
+# Zwei Aufbauten werden erkannt:
+# - Ein Tag pro Seite (Pizza Züri): oben ein Datum mit Wochentag ("Dienstag, 20. Oktober
+#   2026"), darunter Zeilen wie "Menu 1", "Vegimenu" oder "Tagespizza", je gefolgt von
+#   Gericht, Beschreibung, "Vorspeise: …" und Preis ("CHF 21.50").
+# - Eine Woche als Tabelle (Migros): links untereinander Wochentag und Datum ("Montag",
+#   "19. Oktober"), darüber eine Zeile mit den Spaltenköpfen ("Mittagsmenü", "Grill-Combo");
+#   in jeder Zelle Gericht, Beilagen, Preis ("20.50") und Herkunft ("Fleisch: Schweiz").
+#   Was weder unter einem Spaltenkopf noch neben einem Tag steht, bleibt weg.
+# Wochentag und Datum müssen zusammenpassen, sonst wird der Tag übersprungen. Die PDFs
+# kommen aus dem Netz: Alle Grössen sind begrenzt, und menu.js enthält nur Text, der mit
+# json.dumps geschrieben ist, nie Programmcode.
 
 import datetime, json, math, re, sys, unicodedata, zlib
 
@@ -481,8 +487,8 @@ class Page:
                              mul(matrix, st['ctm']), depth + 1)
             args = []
 
-    def lines(self):
-        """Zeichen zu Textzeilen zusammensetzen, von oben nach unten."""
+    def rows(self):
+        """Zeichen nach Zeilen gruppiert, von oben nach unten, jede Zeile von links nach rechts."""
         glyphs = sorted((g for g in self.glyphs if g[4] and g[3] > 0), key=lambda g: (-g[1], g[0]))
         rows = []
         for g in glyphs:
@@ -490,24 +496,49 @@ class Page:
                 rows[-1].append(g)
             else:
                 rows.append([g])
-        out = []
         for row in rows:
             row.sort(key=lambda g: g[0])
-            text, prev = '', None
-            for g in row:
-                if prev is not None:
-                    if g[4] == prev[4] and abs(g[0] - prev[0]) < 0.1 * g[3]:
-                        continue                                # doppelt gezeichnet (Ersatz für Fettschrift)
-                    if g[0] - prev[2] > 0.18 * max(g[3], prev[3]) and not text.endswith(' ') and g[4] != ' ':
-                        text += ' '
-                text += g[4]
-                prev = g
-            text = unicodedata.normalize('NFKC', text)
-            text = ''.join(ch if unicodedata.category(ch)[0] != 'C' else ' ' for ch in text)
-            text = re.sub(r'\s+', ' ', text).strip()
-            if text:
-                out.append(text)
+        return rows
+
+    def lines(self):
+        """Ganze Textzeilen, von oben nach unten."""
+        return [t for t in (text_of(row) for row in self.rows()) if t]
+
+    def segments(self):
+        """Textstücke: eine Zeile, an grossen Lücken getrennt (Spalten einer Tabelle).
+        Je { x: linker Rand des ersten sichtbaren Zeichens, y, size, text }."""
+        out = []
+        for row in self.rows():
+            parts, part = [], [row[0]]
+            for g in row[1:]:
+                if g[0] - part[-1][2] > 1.2 * max(g[3], part[-1][3]):
+                    parts.append(part)
+                    part = [g]
+                else:
+                    part.append(g)
+            parts.append(part)
+            for part in parts:
+                text = text_of(part)
+                if text:
+                    first = next(g for g in part if g[4].strip())
+                    out.append({'x': first[0], 'y': part[0][1], 'size': max(g[3] for g in part), 'text': text})
         return out
+
+
+def text_of(glyphs):
+    """Zeichen einer Zeile (von links nach rechts) zu Text, mit Leerzeichen an Lücken."""
+    text, prev = '', None
+    for g in glyphs:
+        if prev is not None:
+            if g[4] == prev[4] and abs(g[0] - prev[0]) < 0.1 * g[3]:
+                continue                                        # doppelt gezeichnet (Ersatz für Fettschrift)
+            if g[0] - prev[2] > 0.18 * max(g[3], prev[3]) and not text.endswith(' ') and g[4] != ' ':
+                text += ' '
+        text += g[4]
+        prev = g
+    text = unicodedata.normalize('NFKC', text)
+    text = ''.join(ch if unicodedata.category(ch)[0] != 'C' else ' ' for ch in text)
+    return re.sub(r'\s+', ' ', text).strip()
 
 
 WEEKDAYS = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag', 'samstag', 'sonntag']
@@ -519,25 +550,32 @@ LABEL = re.compile(r'(men[uü]\s*\d+|vegi\s*-?\s*men[uü]|vegetarisch(es)?\s+men
 PRICE = re.compile(r'(CHF|SFr\.?|Fr\.)\s*\d', re.I)
 STARTER = re.compile(r'vorspeise\s*:?\s*', re.I)
 FOOTER = re.compile(r'(zusätzliche|wir verwenden|gerne informieren)', re.I)
+DAYDATE = re.compile(r'(\d{1,2})\s*\.\s*(?:(\d{1,2})\s*\.|(%s)\b)\s*(\d{4})?' % '|'.join(MONTHS), re.I)
+PRICE_ONLY = re.compile(r'\d{1,3}[.,]\d{2}')
+ORIGIN = re.compile(r'[A-ZÄÖÜ][a-zäöüA-Z-]*:\s')                # "Fleisch: Schweiz"
 
 
 def clip(text, size=160):
     return text if len(text) <= size else text[:size - 1].rstrip() + '…'
 
 
+def make_date(weekday, day, month, year, today):
+    """Datum aus Tag, Monat (Zahl oder Name) und Jahr (fehlt es: das nächstliegende), nur wenn
+    der Wochentag dazu passt; sonst ist die Angabe fehlerhaft."""
+    month = int(month) if month.isdigit() else MONTHS[month.lower()]
+    year = int(year) if year else today.year + (1 if month - today.month < -6 else -1 if month - today.month > 6 else 0)
+    try:
+        date = datetime.date(year, month, int(day))
+    except ValueError:
+        return None
+    return date if date.weekday() == WEEKDAYS.index(weekday.lower()) else None
+
+
 def read_date(lines, today):
     for line in lines[:20]:
         m = DATE.search(line)
-        if not m:
-            continue
-        month = int(m.group(3)) if m.group(3) else MONTHS[m.group(4).lower()]
-        year = int(m.group(5)) if m.group(5) else today.year + (1 if month - today.month < -6 else -1 if month - today.month > 6 else 0)
-        try:
-            date = datetime.date(year, month, int(m.group(2)))
-        except ValueError:
-            return None
-        # Wochentag und Datum müssen zusammenpassen, sonst ist die Seite fehlerhaft
-        return date if date.weekday() == WEEKDAYS.index(m.group(1).lower()) else None
+        if m:
+            return make_date(m.group(1), m.group(2), m.group(3) or m.group(4), m.group(5), today)
     return None
 
 
@@ -566,36 +604,117 @@ def read_items(lines):
     return items
 
 
-def main():
-    source, target = sys.argv[1], sys.argv[2]
-    with open(source, 'rb') as f:
+def read_cell(label, lines):
+    """Eine Zelle der Wochentabelle: Gericht, Beilagen, Preis, Zusätze und Herkunft."""
+    lines = [line for line in lines if line]
+    if not lines:
+        return None
+    item = {'label': clip(label, 30), 'name': clip(lines[0]), 'desc': [], 'starter': '', 'price': ''}
+    sides, extra = [], []
+    for line in lines[1:]:
+        if PRICE.match(line) or PRICE_ONLY.fullmatch(line):
+            item['price'] = clip(line if PRICE.match(line) else 'CHF ' + line, 40)
+        elif ORIGIN.match(line) or line.startswith('+'):
+            extra.append(clip(line))
+        else:
+            sides.append(line)
+    if sides:
+        item['desc'].append(clip(', '.join(sides)))
+    item['desc'] += extra[:2]
+    return item
+
+
+def read_table(segs, today):
+    """Wochentabelle: { "JJJJ-MM-TT": [Menüs] }, leer, wenn die Seite keine ist."""
+    days = sorted((s for s in segs if s['text'].lower() in WEEKDAYS), key=lambda s: -s['y'])
+    if len(days) < 2:
+        return {}
+    first, size = days[0], days[0]['size']
+    # Spaltenköpfe: die nächste Zeile über dem ersten Tag, rechts der Tagesspalte
+    above = [s for s in segs if s['y'] > first['y'] + 0.5 * size and s['x'] > first['x'] + 2 * size]
+    if not above:
+        return {}
+    top = min(s['y'] for s in above)
+    heads = sorted((s for s in above if abs(s['y'] - top) < 0.5 * s['size']), key=lambda s: s['x'])
+    widths = [b['x'] - a['x'] for a, b in zip(heads, heads[1:])] or [heads[0]['x'] - first['x']]
+    reach = 0.4 * min(widths)
+
+    def head_of(seg):
+        best = min(heads, key=lambda h: abs(h['x'] - seg['x']))
+        return best if abs(best['x'] - seg['x']) < reach else None
+
+    out = {}
+    for i, day in enumerate(days):
+        upper = day['y'] + 0.5 * day['size']
+        lower = days[i + 1]['y'] + 0.5 * days[i + 1]['size'] if i + 1 < len(days) else -1e9
+        inside = [s for s in segs if lower < s['y'] < upper and s is not day]
+        dates = [s for s in inside if abs(s['x'] - day['x']) < day['size'] and s['y'] < day['y']]
+        m = DAYDATE.fullmatch(dates[0]['text']) if dates else None
+        date = m and make_date(day['text'], m.group(1), m.group(2) or m.group(3), m.group(4), today)
+        if not date or date.isoformat() in out:
+            continue
+        items = []
+        for head in heads:
+            cell = [s['text'] for s in sorted(inside, key=lambda s: -s['y']) if head_of(s) is head]
+            item = read_cell(head['text'], cell)
+            if item:
+                items.append(item)
+        if items:
+            out[date.isoformat()] = items[:8]
+    return out
+
+
+def read_pdf(path, today):
+    """Alle Tage eines PDFs: { "JJJJ-MM-TT": [Menüs] }."""
+    with open(path, 'rb') as f:
         data = f.read()
     if not data.startswith(b'%PDF'):
-        sys.exit('keine PDF-Datei')
-    today = datetime.date.today()
-    try:
-        pdf = Pdf(data)
-        pages = pdf.pages()
-        days = {}
-        for page, resources in pages:
-            contents = pdf.resolve(page.get('Contents'))
-            parts = contents if isinstance(contents, list) else [contents]
-            content = b'\n'.join(pdf.decode(s) for s in map(pdf.resolve, parts) if isinstance(s, Stream))
-            reader = Page(pdf)
-            reader.run(content, resources, IDENTITY)
+        raise ValueError('keine PDF-Datei')
+    pdf = Pdf(data)
+    days = {}
+    for page, resources in pdf.pages():
+        contents = pdf.resolve(page.get('Contents'))
+        parts = contents if isinstance(contents, list) else [contents]
+        content = b'\n'.join(pdf.decode(s) for s in map(pdf.resolve, parts) if isinstance(s, Stream))
+        reader = Page(pdf)
+        reader.run(content, resources, IDENTITY)
+        found = read_table(reader.segments(), today)
+        if not found:
             lines = reader.lines()
             date, items = read_date(lines, today), read_items(lines)
-            if date and items and date.isoformat() not in days:
-                days[date.isoformat()] = items
-    except Exception as err:                                    # beliebiges PDF: jeder Fehler heisst "nicht lesbar"
-        sys.exit('PDF nicht lesbar (%s: %s)' % (type(err).__name__, err))
-    if not days:
-        sys.exit('kein Tagesmenü mit gültigem Datum gefunden (%d Seiten)' % len(pages))
-    menu = {'days': [{'date': key, 'items': days[key]} for key in sorted(days)[:31]]}
+            found = {date.isoformat(): items} if date and items else {}
+        for key, items in found.items():
+            days.setdefault(key, items)
+    return days
+
+
+def main():
+    if len(sys.argv) < 3:
+        sys.exit('Aufruf: menu.py menu.js "Lokal=datei.pdf" …')
+    target, today = sys.argv[1], datetime.date.today()
+    places, notes = {}, {}
+    for arg in sys.argv[2:]:
+        place, _, path = arg.partition('=')
+        days = places.setdefault(place, {})
+        try:
+            for key, items in read_pdf(path, today).items():
+                days.setdefault(key, items)
+        except Exception as err:                                # beliebiges PDF: jeder Fehler heisst "nicht lesbar"
+            notes[place] = 'PDF nicht lesbar (%s: %s)' % (type(err).__name__, str(err)[:80])
+    summary = []
+    for place, days in places.items():
+        keys = sorted(days)
+        if keys:
+            summary.append('%s: %d Tage (%s bis %s)' % (place, len(keys), keys[0], keys[-1]))
+        else:
+            summary.append('%s: %s' % (place, notes.get(place, 'kein Tagesmenü mit gültigem Datum gefunden')))
+    menu = {'places': {place: {'days': [{'date': key, 'items': days[key]} for key in sorted(days)[:31]]}
+                       for place, days in places.items() if days}}
+    if not menu['places']:
+        sys.exit('; '.join(summary))
     with open(target, 'w', encoding='ascii') as f:
         f.write('window.TRACKOMAT_MENU = %s;\n' % json.dumps(menu))
-    keys = sorted(days)
-    print('%d Tage (%s bis %s)' % (len(keys), keys[0], keys[-1]))
+    print('; '.join(summary))
 
 
 if __name__ == "__main__":

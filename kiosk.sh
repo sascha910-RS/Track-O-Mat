@@ -160,60 +160,108 @@ update_places() {
   return 1
 }
 
-# Tagesmenü: Ein Lokal legt sein Tagesmenü als PDF ins Netz (menu im Block restaurants des
-# CONFIG). kiosk.sh lädt es, sobald es sich geändert hat, liest die Menüs heraus und legt
-# sie als menu.js neben die Seite. Das PDF enthält meist mehrere Tage im Voraus; die Seite
-# zeigt nur das Menü mit dem heutigen Datum.
+# Tagesmenüs: Lokale legen ihr Tagesmenü als PDF ins Netz (menus im Block restaurants des
+# CONFIG). kiosk.sh lädt die PDFs, sobald sie sich geändert haben, liest mit menu.py die
+# Menüs heraus und legt sie zusammen als menu.js neben die Seite. Ist die Adresse eine
+# Webseite, holt es die dort verlinkten PDFs, deren Name das Muster pdf enthält (bei Migros
+# die aktuelle Woche und die Folgewoche). Die PDFs enthalten meist mehrere Tage im Voraus.
 MENU_FILE="$APP_DIR/menu.js"
 MENU_INTERVAL=3600                                 # Sekunden zwischen zwei Nachfragen (0 = aus)
-MENU_STAMP="$RUN_DIR/track-o-mat-menu.stamp"       # trägt die Änderungszeit des zuletzt geladenen PDFs
+MENU_DIR="$RUN_DIR/track-o-mat-menu"               # zuletzt geladene PDFs, ein Ordner je Adresse
 
-menu_url() {
-  page_value "s/^ *menu: *{.*url: *'\([^']*\)'.*/\1/p"
+# Lokale mit Tagesmenü aus dem CONFIG, eine Zeile pro Lokal: Name|Adresse|Muster der PDF-Links
+menu_sources() {
+  sed -E -n -e '/^ *menus: *\[/,/^ *\]/{' \
+    -e "s/^ *\{ *place: *'([^']*)', *url: *'([^']*)'(, *pdf: *'([^']*)')?.*/\1|\2|\4/p" -e '}' "$PAGE"
 }
 
-# Liest die Menüs aus dem PDF ($1) und schreibt menu.js ($2); gibt die gefundenen Tage aus.
-# Das erledigt menu.py neben diesem Skript, nur mit der Standardbibliothek von python3.
-write_menu() {
-  python3 -I "$APP_DIR/menu.py" "$1" "$2"
-}
-
-# Lädt das PDF, wenn es neuer ist als das zuletzt geladene ($1 = force: auf jeden Fall), und
-# ersetzt menu.js, wenn sich die Menüs geändert haben. Ergebnis in MENU_RESULT. Rückgabe:
-# 0 = erledigt, 1 = Server nicht erreichbar (bald noch einmal versuchen), 2 = kein
-# Tagesmenü eingerichtet, 3 = PDF unbrauchbar (erst ein geändertes PDF wird wieder gelesen).
-update_menu() {
-  local url code rc=0 tmp="$MENU_FILE.tmp$$" since=()
-  MENU_RESULT=""
-  url="$(menu_url)"
-  if [ -z "$url" ]; then MENU_RESULT="kein Tagesmenü eingerichtet (menu im CONFIG)"; return 2; fi
-  if [ "$1" != force ] && [ -f "$MENU_STAMP" ]; then since=(-z "$MENU_STAMP"); fi
-  # -R übernimmt die Änderungszeit des PDFs vom Server, -z fragt mit ihr nach: Ist das PDF
-  # nicht neuer, antwortet der Server mit 304 und schickt nichts
+# Lädt $1 nach $2, wenn die Datei fehlt oder auf dem Server neuer ist: -R übernimmt die
+# Änderungszeit vom Server, -z fragt mit ihr nach (ist nichts neu, kommt 304 ohne Daten).
+# Rückgabe: 0 = neu geladen, 1 = nicht erreichbar (Grund in MENU_ERRORS), 2 = unverändert
+menu_fetch() {
+  local code since=()
+  if [ -f "$2" ]; then since=(-z "$2"); fi
   if ! code="$(curl -sS -f -m 30 --max-filesize 5000000 -R -A "$PLACES_AGENT" "${since[@]}" \
-                 -w '%{http_code}' -o "$tmp.pdf" "$url" 2>"$tmp.err")"; then
-    MENU_RESULT="$url nicht erreichbar ($(first_line "$tmp.err"))"
-    log "Tagesmenü: $MENU_RESULT"
-    rm -f "$tmp.pdf" "$tmp.err"
+                 -w '%{http_code}' -o "$2.tmp" "$1" 2>"$2.err")"; then
+    MENU_ERRORS="$MENU_ERRORS; $1 nicht erreichbar ($(first_line "$2.err"))"
+    rm -f "$2.tmp" "$2.err"
     return 1
   fi
-  if [ "$code" != 200 ] || [ ! -f "$tmp.pdf" ]; then
-    MENU_RESULT="unverändert"
-  else
-    touch -r "$tmp.pdf" "$MENU_STAMP"
-    if MENU_RESULT="$(write_menu "$tmp.pdf" "$tmp.js" 2>"$tmp.err")"; then
-      if cmp -s "$tmp.js" "$MENU_FILE"; then
-        MENU_RESULT="$MENU_RESULT, unverändert"
-      elif mv -f "$tmp.js" "$MENU_FILE"; then
-        log "Tagesmenü: $MENU_RESULT von $url übernommen"
-      fi
+  rm -f "$2.err"
+  if [ "$code" = 200 ] && [ -f "$2.tmp" ]; then mv -f "$2.tmp" "$2"; return 0; fi
+  rm -f "$2.tmp"
+  return 2
+}
+
+# PDF-Links der Webseite in Datei $1, deren Name $3 enthält, als volle Adressen
+# ($2 = Adresse der Seite, für Links wie "/media/…")
+menu_links() {
+  local origin
+  origin="$(printf '%s' "$2" | sed -E 's#^(https?://[^/]+).*#\1#')"
+  grep -oiE 'href="[^"]+\.pdf"' "$1" | sed -E 's/^[hH][rR][eE][fF]="//; s/"$//' | grep -F -- "$3" \
+    | sed -E "s#^/#$origin/#" | grep -E '^https?://' | awk '!seen[$0]++' | head -n 4
+}
+
+# Holt die PDFs aller Lokale (nur, was sich geändert hat) und schreibt menu.js neu, wenn
+# eines neu ist ($1 = force: auf jeden Fall neu lesen, etwa nach einem Update von menu.py).
+# Ergebnis in MENU_RESULT. Rückgabe: 0 = erledigt, 1 = eine Adresse nicht erreichbar (bald
+# noch einmal versuchen), 2 = kein Tagesmenü eingerichtet, 3 = kein PDF lesbar.
+update_menu() {
+  local place url pattern dir link file keep links args=() fresh=0 rc=0 result tmp="$MENU_FILE.tmp$$"
+  MENU_RESULT=""; MENU_ERRORS=""
+  if [ -z "$(menu_sources)" ]; then MENU_RESULT="kein Tagesmenü eingerichtet (menus im CONFIG)"; return 2; fi
+  while IFS='|' read -r place url pattern; do
+    [ -n "$place" ] && [ -n "$url" ] || continue
+    links=""
+    dir="$MENU_DIR/$(printf '%s' "$url" | cksum | cut -d ' ' -f 1)"
+    mkdir -p "$dir" || continue
+    if [ -z "$pattern" ]; then
+      menu_fetch "$url" "$dir/menu.pdf"
+      case $? in 0) fresh=1 ;; 1) rc=1 ;; esac
+    elif menu_fetch "$url" "$dir/seite.html"; [ $? != 1 ] \
+         && links="$(menu_links "$dir/seite.html" "$url" "$pattern")" && [ -n "$links" ]; then
+      keep=" "
+      while read -r link; do
+        file="$dir/$(printf '%s' "${link##*/}" | tr -c 'A-Za-z0-9._-' '_')"
+        keep="$keep$file "
+        menu_fetch "$link" "$file"
+        case $? in 0) fresh=1 ;; 1) rc=1 ;; esac
+      done <<< "$links"
+      # Nicht mehr verlinkte PDFs (vergangene Wochen) entfernen; nur, wenn die Seite erreichbar war
+      for file in "$dir"/*.pdf; do
+        case "$keep" in *" $file "*) ;; *) if [ -f "$file" ]; then rm -f "$file"; fresh=1; fi ;; esac
+      done
     else
-      MENU_RESULT="PDF von $url verworfen ($(first_line "$tmp.err"))"
-      log "Tagesmenü: $MENU_RESULT"
-      rc=3
+      rc=1
+      if [ -f "$dir/seite.html" ] && [ -z "$links" ]; then MENU_ERRORS="$MENU_ERRORS; auf $url keine PDF-Links mit «$pattern»"; fi
     fi
+    for file in "$dir"/*.pdf; do
+      if [ -f "$file" ]; then args+=("$place=$file"); fi
+    done
+  done < <(menu_sources)
+  MENU_ERRORS="${MENU_ERRORS#; }"
+
+  if [ "$fresh" = 0 ] && [ "$1" != force ] && [ -f "$MENU_FILE" ]; then
+    MENU_RESULT="unverändert"
+  elif [ "${#args[@]}" = 0 ]; then
+    MENU_RESULT="kein PDF vorhanden"
+  elif result="$(python3 -I "$APP_DIR/menu.py" "$tmp.js" "${args[@]}" 2>&1)"; then
+    if cmp -s "$tmp.js" "$MENU_FILE"; then
+      MENU_RESULT="$result, unverändert"
+    elif mv -f "$tmp.js" "$MENU_FILE"; then
+      MENU_RESULT="$result"
+      log "Tagesmenü: $result"
+    fi
+  else
+    MENU_RESULT="$(printf '%s' "$result" | head -n 1 | cut -c1-300)"
+    log "Tagesmenü: $MENU_RESULT"
+    if [ "$rc" = 0 ]; then rc=3; fi
   fi
-  rm -f "$tmp.pdf" "$tmp.js" "$tmp.err"
+  if [ -n "$MENU_ERRORS" ]; then
+    MENU_RESULT="$MENU_RESULT ($MENU_ERRORS)"
+    log "Tagesmenü: $MENU_ERRORS"
+  fi
+  rm -f "$tmp.js"
   return $rc
 }
 
@@ -412,7 +460,7 @@ run_loop() {
     STATS_PID=$!
   fi
   MENU_PID=""
-  if [ "$MENU_INTERVAL" -gt 0 ] && [ -n "$(menu_url)" ]; then
+  if [ "$MENU_INTERVAL" -gt 0 ] && [ -n "$(menu_sources)" ]; then
     menu_loop >/dev/null 2>&1 &
     MENU_PID=$!
   fi
@@ -426,7 +474,7 @@ run_loop() {
     fi
   fi
   WATCH_PID=""
-  trap 'kill "$PLACES_PID" $STATS_PID $MENU_PID $NET_PID $WATCH_PID 2>/dev/null; rm -f "$PID_FILE" "$STATS_FILE" "$STATS_FILE.tmp" "$MENU_STAMP"; log "Kiosk-Schleife beendet"' EXIT
+  trap 'kill "$PLACES_PID" $STATS_PID $MENU_PID $NET_PID $WATCH_PID 2>/dev/null; rm -f "$PID_FILE" "$STATS_FILE" "$STATS_FILE.tmp"; log "Kiosk-Schleife beendet"' EXIT
   rm -f "$STOP_FLAG"
   if [ -n "$WAYLAND_DISPLAY" ]; then SESSION="Wayland"; else SESSION="X11"; fi
   log "Kiosk-Schleife gestartet (PID $$, $BROWSER, $SESSION)"
