@@ -164,7 +164,8 @@ update_places() {
 # CONFIG). kiosk.sh lädt die PDFs, sobald sie sich geändert haben, liest mit menu.py die
 # Menüs heraus und legt sie zusammen als menu.js neben die Seite. Ist die Adresse eine
 # Webseite, holt es die dort verlinkten PDFs, deren Name das Muster pdf enthält (bei Migros
-# die aktuelle Woche und die Folgewoche). Die PDFs enthalten meist mehrere Tage im Voraus.
+# die aktuelle Woche und die Folgewoche), und zwar nur einmal pro Tag: Wochenpläne ändern
+# sich selten. Die PDFs enthalten meist mehrere Tage im Voraus.
 MENU_FILE="$APP_DIR/menu.js"
 MENU_INTERVAL=3600                                 # Sekunden zwischen zwei Nachfragen (0 = aus)
 MENU_DIR="$RUN_DIR/track-o-mat-menu"               # zuletzt geladene PDFs, ein Ordner je Adresse
@@ -207,7 +208,7 @@ menu_links() {
 # Ergebnis in MENU_RESULT. Rückgabe: 0 = erledigt, 1 = eine Adresse nicht erreichbar (bald
 # noch einmal versuchen), 2 = kein Tagesmenü eingerichtet, 3 = kein PDF lesbar.
 update_menu() {
-  local place url pattern dir link file keep links args=() fresh=0 rc=0 result tmp="$MENU_FILE.tmp$$"
+  local place url pattern dir link file keep links ok args=() fresh=0 rc=0 result tmp="$MENU_FILE.tmp$$"
   MENU_RESULT=""; MENU_ERRORS=""
   if [ -z "$(menu_sources)" ]; then MENU_RESULT="kein Tagesmenü eingerichtet (menus im CONFIG)"; return 2; fi
   while IFS='|' read -r place url pattern; do
@@ -218,15 +219,19 @@ update_menu() {
     if [ -z "$pattern" ]; then
       menu_fetch "$url" "$dir/menu.pdf"
       case $? in 0) fresh=1 ;; 1) rc=1 ;; esac
+    elif [ "$1" != force ] && [ -f "$dir/stand" ] && [ "$(date -r "$dir/stand" +%F)" = "$(date +%F)" ]; then
+      :   # Webseite und Wochenpläne heute schon vollständig geholt
     elif menu_fetch "$url" "$dir/seite.html"; [ $? != 1 ] \
          && links="$(menu_links "$dir/seite.html" "$url" "$pattern")" && [ -n "$links" ]; then
-      keep=" "
+      keep=" "; ok=1
       while read -r link; do
         file="$dir/$(printf '%s' "${link##*/}" | tr -c 'A-Za-z0-9._-' '_')"
         keep="$keep$file "
         menu_fetch "$link" "$file"
-        case $? in 0) fresh=1 ;; 1) rc=1 ;; esac
+        case $? in 0) fresh=1 ;; 1) rc=1; ok=0 ;; esac
       done <<< "$links"
+      # Erst wenn alles geklappt hat, gilt die Quelle für heute als erledigt (sonst neuer Versuch)
+      if [ "$ok" = 1 ]; then touch "$dir/stand"; fi
       # Nicht mehr verlinkte PDFs (vergangene Wochen) entfernen; nur, wenn die Seite erreichbar war
       for file in "$dir"/*.pdf; do
         case "$keep" in *" $file "*) ;; *) if [ -f "$file" ]; then rm -f "$file"; fresh=1; fi ;; esac

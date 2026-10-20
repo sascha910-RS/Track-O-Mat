@@ -627,12 +627,13 @@ nicht.
 
 `kiosk.sh` lädt die PDFs beim Start und fragt danach einmal pro Stunde (`MENU_INTERVAL`)
 nach, ob sich etwas geändert hat; unveränderte PDFs schickt der Server nicht noch einmal.
-Bei Migros liest es dazu die Webseite und holt die dort verlinkten Wochenpläne,
-vergangene Wochen fallen weg. In der Ruhezeit fragt es nie nach. Die PDFs liest `menu.py`
-(braucht nur `python3`, keine weiteren Pakete) und legt die Menüs aller Lokale als
-`menu.js` neben die Seite. Jeder Tag braucht ein Datum mit Wochentag; passt der Wochentag
-nicht zum Datum, wird der Tag übersprungen. Jedes neue Menü und jeder Fehler steht im
-Protokoll (`kiosk.sh log`). Von Hand geht es mit:
+Die Migros-Webseite liest es nur einmal pro Tag (beim ersten Durchgang nach der Ruhezeit)
+und holt dann die dort verlinkten Wochenpläne, vergangene Wochen fallen weg. In der
+Ruhezeit fragt es nie nach. Die PDFs liest `menu.py` (braucht nur `python3`, keine
+weiteren Pakete) und legt die Menüs aller Lokale als `menu.js` neben die Seite. Jeder Tag
+braucht ein Datum mit Wochentag; passt der Wochentag nicht zum Datum, wird der Tag
+übersprungen. Jedes neue Menü und jeder Fehler steht im Protokoll (`kiosk.sh log`). Von
+Hand geht es mit:
 
 ```bash
 ~/track-o-mat/kiosk.sh menu
