@@ -89,6 +89,16 @@
     line-height: 19px;
     color: var(--muted);
   }
+  /* Aussentemperatur als dritte Zeile unter dem Datum; das Datum rückt dafür nach oben */
+  #header.has-temp #clock-date { top: 16px; }
+  #temp {
+    position: absolute;
+    right: 116px; top: 56px;
+    text-align: right;
+    font-size: 22px;
+    line-height: 26px;
+    color: var(--time);
+  }
 
   /* ---------- Bahnhofsuhr ---------- */
   /* Zifferblatt als SVG (statisch), Zeiger als eigene Ebenen: so bewegt der Browser den
@@ -418,12 +428,13 @@
   .kv {
     display: grid;
     grid-template-columns: 250px 1fr;
-    min-height: 51px;
+    min-height: 47px;
     align-items: center;
     border-bottom: 1px solid var(--line);
     font-size: 21px;
   }
   .kv span:first-child { color: var(--muted); }
+  #info-temp { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .about-name { padding: 16px 0 4px; font-size: 30px; }
   /* Tagesmenü: "Menu 1 | Gericht / Beschreibung | CHF 21.50" */
   .m-item {
@@ -580,6 +591,17 @@
     box-shadow: 3px 3px 0 var(--c-line);
     transform: rotate(-5deg);
   }
+  /* Aussentemperatur als Aufkleber neben der Uhrzeit */
+  #c-temp {
+    position: absolute; right: 150px; top: 146px;
+    padding: 0 9px;
+    font: 25px/30px var(--f-comic); letter-spacing: 1px;
+    color: var(--c-line); background: var(--c-mint);
+    border: 3px solid var(--c-line);
+    box-shadow: 3px 3px 0 var(--c-line);
+    transform: rotate(4deg);
+  }
+  #c-temp:empty { display: none; }
   #donut .ink { stroke: var(--c-line); stroke-linejoin: round; }
   #donut .shadow { fill: var(--c-line); }
   #donut .disc, #donut .hole { fill: var(--c-red); }
@@ -801,6 +823,7 @@
     <div id="brand" class="only-classic">Track-O-Mat</div>
     <div id="station" class="only-classic"></div>
     <div id="clock-date" class="only-classic"></div>
+    <div id="temp" class="only-classic"></div>
     <div id="c-presenter" class="only-comic"></div>
     <div id="c-title" class="only-comic"></div>
     <div id="c-pill" class="only-comic"></div>
@@ -814,6 +837,7 @@
       <div class="hand" id="hand-sec"></div>
     </div>
     <div id="clock-sticker" class="only-comic"></div>
+    <div id="c-temp" class="only-comic"></div>
   </div>
 
   <div class="section-label" id="label-list">
@@ -904,6 +928,7 @@
       <div class="kv only-places"><span>Restaurants: Datenquelle</span><span>© OpenStreetMap-Mitwirkende</span></div>
       <div class="kv only-places"><span>Restaurants: Intervall</span><span id="info-places-interval"></span></div>
       <div class="kv only-places"><span>Restaurants: Stand</span><span id="info-places-last">–</span></div>
+      <div class="kv"><span>Temperatur</span><span id="info-temp">–</span></div>
       <div class="kv" style="border-bottom:0"><span>System</span><span id="info-sys">–</span></div>
     </div>
 
@@ -1004,6 +1029,16 @@
         { place: 'Pizza Züri', url: 'https://pizzazueri.ch/wp-content/uploads/Tagesmenu.pdf', until: '14:00' },
         { place: 'Migros Restaurant', url: 'https://gastro.migros.ch/genossenschaft-migros-zuerich/migros-restaurant', pdf: 'online-menueplan', until: '14:00', note: 'Menüplan der Migros Zürich, nicht jedes Restaurant bietet alle Menüs an.' }
       ]
+    },
+    // Aussentemperatur oben rechts: Messwert einer Station von MeteoSchweiz (offene Daten,
+    // alle 10 Minuten neu). Die Seite holt ihn selbst, in der Ruhezeit nicht. Ist der letzte
+    // Wert älter als maxAgeMin oder die Station nicht erreichbar, verschwindet die Anzeige.
+    weather: {
+      enabled: true,                              // false = keine Temperatur
+      station: 'REH',                             // Kürzel der Station: REH = Zürich / Affoltern (4.6 km, 445 m)
+      url: 'https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{station}/ogd-smn_{station}_t_now.csv',
+      refreshMin: 10,                             // so oft nachfragen
+      maxAgeMin: 60                               // ältere Werte nicht zeigen
     },
     // Ruhezeit: keine Abfragen; statt der Liste ein dunkler Ruhebildschirm mit Uhr. Antippen
     // weckt die Anzeige nicht. kiosk.sh liest diesen Block ebenfalls und holt in der
@@ -1128,6 +1163,10 @@
   var restWake = 0;          // Ende der laufenden Ruhezeit (ms), 0 = unbekannt
   var statsLoading = false;  // Messwerte von kiosk.sh werden gerade gelesen
   var nextStatsAt = 0;
+  var temp = null;           // letzte Aussentemperatur: { value (°C), at (Messzeit, ms) }
+  var tempLoading = false;
+  var nextTempAt = 0;
+  var tempShown = null;      // zuletzt angezeigte Texte (DOM nur bei Änderung anfassen)
   var places = [];           // Lokale aus OpenStreetMap: { name, kind, cuisine, hours, dist }
   var placesState = '';      // '', 'loading', 'ok' oder 'error'
   var placesLoading = false;
@@ -1591,6 +1630,7 @@
     } else {
       online = true;
       nextFetchAt = 0;           // sofort frisch laden
+      nextTempAt = 0;
     }
     render();
     updateStatus();
@@ -1755,6 +1795,57 @@
     tag.onerror = function () { done(false); };
     tag.src = 'file://' + STATS_SRC + '?' + Date.now();
     document.head.appendChild(tag);
+  }
+
+  /* ---------- Aussentemperatur (MeteoSchweiz) ---------- */
+  // Die Station liefert eine CSV-Datei mit allen 10-Minuten-Werten des Tages; die Spalte
+  // tre200s0 ist die Lufttemperatur 2 m über Boden, die Zeit steht in UTC ("21.10.2026 16:40")
+  function loadTemp() {
+    var W = CONFIG.weather;
+    if (tempLoading) return;
+    tempLoading = true;
+    nextTempAt = Date.now() + W.refreshMin * 60000;
+    var ctrl = new AbortController();
+    var timeout = setTimeout(function () { ctrl.abort(); }, CONFIG.fetchTimeoutSec * 1000);
+    fetch(W.url.replace(/\{station\}/g, W.station.toLowerCase()), { cache: 'no-store', signal: ctrl.signal })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(function (text) {
+        var lines = text.trim().split(/\r?\n/), head = lines[0].split(';');
+        var col = head.indexOf('tre200s0'), tcol = head.indexOf('reference_timestamp');
+        for (var i = lines.length - 1; i > 0 && col >= 0 && tcol >= 0; i--) {
+          var c = lines[i].split(';'), v = parseFloat(c[col]);
+          var m = /^(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2})$/.exec(c[tcol] || '');
+          if (c[col] === '' || isNaN(v) || !m) continue;
+          temp = { value: v, at: Date.UTC(+m[3], m[2] - 1, +m[1], +m[4], +m[5]) };
+          break;
+        }
+      })
+      .catch(function () { /* nicht erreichbar: der letzte Wert veraltet von selbst */ })
+      .then(function () {
+        clearTimeout(timeout);
+        tempLoading = false;
+        updateTemp(Date.now());
+      });
+  }
+
+  // Ganze Grade ("9 °C", "−2 °C"); nur ein Wert, der nicht älter als maxAgeMin ist
+  function updateTemp(now) {
+    var W = CONFIG.weather, fresh = temp && now - temp.at <= W.maxAgeMin * 60000 && !resting;
+    var text = '';
+    if (fresh) {
+      var v = Math.round(temp.value);
+      text = (v < 0 ? '\u2212' + (-v) : String(v === 0 ? 0 : v)) + '\u00a0°C';
+    }
+    var info = 'MeteoSchweiz · ' + (!temp ? 'noch kein Wert' : hhmm(temp.at) + (fresh || resting ? '' : ', veraltet'));
+    if (text + '|' + info === tempShown) return;
+    tempShown = text + '|' + info;
+    $('temp').textContent = text;
+    $('c-temp').textContent = text;
+    $('header').classList.toggle('has-temp', !!text);
+    $('info-temp').textContent = info;
   }
 
   /* ---------- Restaurants (OpenStreetMap) ---------- */
@@ -2259,6 +2350,10 @@
 
     if (!resting && now >= nextFetchAt) loadData();
     if (overlayMode === 'info' && now >= nextStatsAt) loadStats();
+    if (CONFIG.weather.enabled) {
+      if (!resting && now >= nextTempAt) loadTemp();
+      updateTemp(now);
+    }
     if (CONFIG.restaurants.enabled && now >= nextPlacesAt) loadPlaces();
     if (CONFIG.restaurants.enabled && (CONFIG.restaurants.menus || []).length && now >= nextMenuAt) loadMenu();
     // Um until und um Mitternacht wechselt das gültige Menü: Liste sofort nachführen
@@ -2346,6 +2441,7 @@
     buildClockFace();
     buildDonut();
     buildBurst();
+    if (!CONFIG.weather.enabled) $('info-temp').parentNode.style.display = 'none';
     if (!CONFIG.restaurants.enabled) {
       $('food-btn').style.display = 'none';
       var rows = document.querySelectorAll('.only-places');

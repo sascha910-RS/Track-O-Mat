@@ -503,6 +503,15 @@ Schlieren, Glanzenberg» (`nextStops`, `0` = aus). «Zürich» am Anfang eines H
 fällt dort weg (`stopPrefix`), aus «Zürich HB» wird «HB». Hält ein Zug bis zum Ziel
 nirgends, steht «ohne Zwischenhalt».
 
+Oben rechts steht unter dem Datum die Aussentemperatur in ganzen Graden, im Comic-Look
+als Aufkleber neben der Uhrzeit. Sie stammt von der Messstation Zürich / Affoltern von
+MeteoSchweiz (offene Daten, 4.6 km entfernt und auf ähnlicher Höhe; Altstetten selbst hat
+keine Station). Die Seite fragt alle 10 Minuten nach, in der Ruhezeit nicht. Ist der
+letzte Wert älter als eine Stunde oder die Station nicht erreichbar, verschwindet die
+Anzeige. Unter «Info» steht in der Zeile «Temperatur» die Zeit der letzten Messung.
+Eingestellt wird das im Block `weather` des `CONFIG`: `station` (Kürzel der Station),
+`refreshMin`, `maxAgeMin` und `enabled` (`false` = keine Temperatur).
+
 ### Ressourcen-Monitor
 
 Das Info-Fenster zeigt in der Zeile «System» die CPU-Auslastung und den belegten
