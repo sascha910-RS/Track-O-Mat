@@ -572,12 +572,31 @@ Zeilenhöhe (`rowHeight`) sowie `colors` und `nightColors` für den Nachtmodus.
 Die beiden Schriften des Comic-Looks (Bangers und Rammetto One, SIL Open Font License)
 sind in `track-o-mat.html` eingebettet; die Seite lädt weiterhin nichts aus dem Netz.
 
+### Tram und Bus
+
+Die Fusszeile hat drei Knöpfe für die Ansichten «Züge», «Tram & Bus» und «Restaurants»;
+der Knopf der gezeigten Ansicht ist rot markiert. Nach `idleResetSec` ohne Berührung
+springt die Anzeige zurück auf «Züge», und alle Filter stehen wieder auf «Alle».
+
+«Tram & Bus» zeigt die Abfahrten an den Haltestellen «Bahnhof Altstetten» und «Bahnhof
+Altstetten Nord» in einer Liste, aus derselben Quelle und im selben Intervall wie die
+Züge. Abgefragt wird nur, solange die Ansicht offen ist. Statt des Gleises steht die
+Kante; Abfahrten ab Altstetten Nord sind zusätzlich mit «Nord» markiert. Trams haben ein
+dunkles, eckiges Liniensymbol, Busse ein helleres, abgerundetes. Beim Ziel fällt
+«Zürich,» weg («Triemlispital» statt «Zürich, Triemlispital»).
+
+Eingestellt wird das im Block `local` des `CONFIG`: die Haltestellen (`stops`, mit der
+Nummer aus `https://transport.opendata.ch/v1/locations?query=…`, dem Zusatz bei der Kante
+und der Anzahl Abfahrten pro Abfrage), die Kategorien für Tram und Bus und die
+Filter-Kacheln. Ein Richtungsfilter (`via`) darf hier eine Liste von Haltestellen sein;
+es genügt, wenn die Linie eine davon anfährt. `enabled: false` blendet den Knopf aus.
+
 ### Restaurants
 
-Rechts von «Info» öffnet der Knopf «Restaurants» eine Liste der Restaurants und
+Der Knopf «Restaurants» öffnet eine Liste der Restaurants und
 Take-aways rund um den Bahnhof, mit Öffnungsstatus und Luftlinien-Distanz. Offene Lokale
 stehen zuerst; «Alle» zeigt auch die geschlossenen, mit «Zurück» und «Weiter» blättert
-man. Nach `idleResetSec` ohne Berührung springt die Anzeige zu den Abfahrten zurück.
+man. Nach `idleResetSec` ohne Berührung springt die Anzeige zu den Zügen zurück.
 
 Die Daten stammen von OpenStreetMap. `kiosk.sh` holt sie einmal pro Tag ab 07:00 Uhr
 (`refreshAt`) und legt sie als `places.js` neben die Seite; fehlt die Datei, holt es sie

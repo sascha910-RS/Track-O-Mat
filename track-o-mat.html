@@ -153,8 +153,10 @@
   }
   #thead .c-platform { text-align: center; }
 
-  /* Ansicht "Restaurants": Elemente der jeweils anderen Ansicht ausblenden */
-  #app:not(.food) .only-food, #app.food .only-trains { display: none !important; }
+  /* Drei Ansichten: Züge (ohne Klasse), Tram & Bus (.local), Restaurants (.food). Elemente
+     der anderen Ansichten ausblenden; only-deps gilt für beide Abfahrtslisten */
+  #app:not(.food) .only-food, #app:not(.local) .only-local,
+  #app.food .only-trains, #app.local .only-trains, #app.food .only-deps { display: none !important; }
 
   .row.food, #thead-food { grid-template-columns: 148px 1fr 84px; }
   .c-dist { text-align: right; font-size: 22px; color: var(--muted); white-space: nowrap; }
@@ -233,6 +235,9 @@
   }
   .badge.k-s { background: var(--tile); }
   .badge.k-fern { background: var(--accent); }
+  /* Tram dunkel und eckig, Bus heller und abgerundet: auch ohne Farben unterscheidbar */
+  .badge.k-tram { background: var(--tile); }
+  .badge.k-bus { border-radius: 18px; }
   .c-dest { min-width: 0; }
   .c-dest .d-to {
     font-size: 28px;
@@ -265,6 +270,10 @@
     background: var(--accent);
     color: #FFFFFF;
   }
+  /* Haltestelle klein unter der Kante (Tram & Bus, z. B. "Nord") */
+  .c-platform.tagged { display: flex; flex-direction: column; align-items: center; }
+  .c-platform.tagged .platform { height: 34px; line-height: 34px; }
+  .p-tag { font-size: 15px; line-height: 17px; color: var(--muted); white-space: nowrap; }
   .empty {
     padding: 40px 16px;
     font-size: 26px;
@@ -297,7 +306,7 @@
   }
 
   /* ---------- Filter-Kacheln ---------- */
-  #filters, #filters-food {
+  #filters, #filters-local, #filters-food {
     flex: 0 0 104px;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -314,7 +323,7 @@
     color: #FFFFFF;
     background: var(--tile);
   }
-  #filters.many .tile { font-size: 20px; line-height: 26px; }
+  #filters.many .tile, #filters-local.many .tile { font-size: 20px; line-height: 26px; }
   .tile.pressed { background: var(--tile-pressed); }
   .tile.active { background: var(--accent); }
   .tile.disabled { opacity: 0.35; }
@@ -339,6 +348,8 @@
   }
   .foot-btn svg { width: 44px; height: 44px; margin-bottom: 4px; }
   .foot-btn.pressed { background: var(--tile2); color: var(--text); }
+  /* Knopf der gerade gezeigten Ansicht */
+  .foot-btn.active { color: var(--accent); box-shadow: inset 0 4px 0 var(--accent); }
 
   svg.icon {
     fill: none;
@@ -611,7 +622,7 @@
 
   /* ---------- Liste ---------- */
   html.comic .section-label { display: none; }
-  html.comic #app.food #label-list {
+  html.comic #app.food #label-list, html.comic #app.local #label-list {
     display: block; align-self: flex-start;
     margin: 0 0 10px 30px; padding: 1px 14px 0;
     font: 24px/31px var(--f-comic); letter-spacing: 1px; text-transform: uppercase;
@@ -649,6 +660,7 @@
     transform: skewX(-6deg); transform-origin: left bottom;
   }
   #hero-title.long { font-size: 44px; }
+  #hero-title.longer { font-size: 36px; }
   #hero-sub {
     position: absolute; left: 24px; right: 176px; top: 112px;
     display: flex; align-items: center; gap: 8px;
@@ -704,6 +716,15 @@
     font: 700 14px/20px Arial, sans-serif;
     color: var(--c-paper); background: var(--c-text);
   }
+  /* Haltestelle (Tram & Bus, z. B. "Nord") als kleines Schild hinter der Zeit */
+  .d-tag {
+    flex: 0 0 auto; align-self: center;
+    margin-left: 10px; padding: 0 6px;
+    font: 18px/22px var(--f-comic); letter-spacing: 1px; text-transform: uppercase;
+    color: var(--c-text); background: var(--c-paper);
+    border: 2px solid var(--c-line); border-radius: 6px;
+  }
+  #hero-sub .d-tag { margin-left: 0; }
   #hero-sub .h-via { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 15px/24px Arial, sans-serif; }
   #hero-sub .d-delay { margin-left: 2px; font-size: 16px; line-height: 23px; }
   .d-dots { flex: 1 1 0; min-width: 12px; margin: 0 10px; border-bottom: 4px dotted var(--c-text); transform: translateY(-5px); }
@@ -718,7 +739,8 @@
     border: 3px solid var(--c-line); border-radius: 9px;
     transform: rotate(-3deg) skewX(-6deg);
   }
-  html.comic .badge.k-s, html.comic .badge.f-open { color: var(--c-line); background: var(--c-mint); }
+  html.comic .badge.k-s, html.comic .badge.k-tram, html.comic .badge.f-open { color: var(--c-line); background: var(--c-mint); }
+  html.comic .badge.k-bus { border-radius: 17px; }
   html.comic .badge.k-fern, html.comic .badge.f-closed { color: var(--c-cream); background: var(--c-red); }
   html.comic .empty { font: 34px/40px var(--f-comic); letter-spacing: 1px; color: var(--c-text); }
 
@@ -732,14 +754,14 @@
     border: 3px solid var(--c-line);
     transform: rotate(-1deg);
   }
-  html.comic #filters, html.comic #filters-food { flex: 0 0 84px; gap: 9px; padding: 0 28px 14px 24px; }
+  html.comic #filters, html.comic #filters-local, html.comic #filters-food { flex: 0 0 84px; gap: 9px; padding: 0 28px 14px 24px; }
   html.comic .tile {
     font: 23px/24px var(--f-comic); letter-spacing: 1px; text-transform: uppercase;
     color: var(--c-text); background: var(--c-paper);
     border: 3px solid var(--c-line); border-radius: 11px;
     box-shadow: 4px 4px 0 var(--c-line);
   }
-  html.comic #filters.many .tile { font-size: 19px; line-height: 21px; letter-spacing: 0.5px; }
+  html.comic #filters.many .tile, html.comic #filters-local.many .tile { font-size: 19px; line-height: 21px; letter-spacing: 0.5px; }
   html.comic .tile:nth-child(odd) { transform: rotate(-1deg); }
   html.comic .tile:nth-child(even) { transform: rotate(0.8deg); }
   html.comic .tile.active { color: var(--c-cream); background: var(--c-red); }
@@ -752,6 +774,7 @@
   html.comic #footer { flex: 0 0 84px; margin-top: 0; background: var(--c-paper); border-top: 4px solid var(--c-line); }
   html.comic .foot-btn { font: 19px/22px var(--f-comic); letter-spacing: 1px; text-transform: uppercase; color: var(--c-text); }
   html.comic .foot-btn svg { width: 38px; height: 38px; margin-bottom: 2px; stroke-width: 2.6; }
+  html.comic .foot-btn.active { color: var(--c-cream); background: var(--c-red); box-shadow: none; }
   html.comic .foot-btn.pressed { background: var(--c-mint); color: var(--c-line); }
 
   /* ---------- Hilfe / Info ---------- */
@@ -842,16 +865,17 @@
 
   <div class="section-label" id="label-list">
     <span class="only-trains">Nächste Abfahrten</span>
+    <span class="only-local" id="label-local"></span>
     <span class="only-food">Restaurants und Take-aways in der Nähe</span>
   </div>
   <div id="board">
-    <div id="thead" class="only-trains">
-      <div>Abfahrt</div><div></div><div>Linie</div><div>Ziel</div><div class="c-platform">Gleis</div>
+    <div id="thead" class="only-deps">
+      <div>Abfahrt</div><div></div><div>Linie</div><div>Ziel</div><div class="c-platform" id="thead-platform">Gleis</div>
     </div>
     <div id="thead-food" class="only-food">
       <div>Jetzt</div><div>Lokal</div><div class="c-dist">Luftlinie</div>
     </div>
-    <div id="hero" class="only-comic only-trains off">
+    <div id="hero" class="only-comic only-deps off">
       <div id="hero-label"></div>
       <div id="hero-title"></div>
       <div id="hero-sub"></div>
@@ -863,6 +887,7 @@
 
   <div class="section-label">Filter</div>
   <div id="filters" class="only-trains"></div>
+  <div id="filters-local" class="only-local"></div>
   <div id="filters-food" class="only-food">
     <div class="tile" id="food-open" data-food="open">Jetzt offen</div>
     <div class="tile" id="food-all" data-food="all">Alle</div>
@@ -880,11 +905,18 @@
       <svg class="icon" viewBox="0 0 44 44"><path d="M8 13h28M8 22h28M8 31h28"/></svg>
       Info
     </div>
-    <div class="foot-btn" data-action="food" id="food-btn">
-      <svg class="icon only-trains" viewBox="0 0 44 44"><path d="M13 8v9a4 4 0 0 0 8 0V8M17 8v28M31 36V8c-4 3-6 8-6 15h6"/></svg>
-      <span class="only-trains">Restaurants</span>
-      <svg class="icon only-food" viewBox="0 0 44 44"><rect x="11" y="7" width="22" height="24" rx="3"/><path d="M11 20h22M17 26v.5M27 26v.5M16 31l-4 6M28 31l4 6"/></svg>
-      <span class="only-food">Abfahrten</span>
+    <!-- Ansichten: der Knopf der gezeigten Ansicht ist markiert -->
+    <div class="foot-btn" data-action="view" data-view="trains" id="trains-btn">
+      <svg class="icon" viewBox="0 0 44 44"><rect x="11" y="7" width="22" height="24" rx="3"/><path d="M11 20h22M17 26v.5M27 26v.5M16 31l-4 6M28 31l4 6"/></svg>
+      Züge
+    </div>
+    <div class="foot-btn" data-action="view" data-view="local" id="local-btn">
+      <svg class="icon" viewBox="0 0 44 44"><rect x="8" y="7" width="28" height="25" rx="4"/><path d="M8 19h28M14 13h16M14 26v.5M30 26v.5M13 32v4M31 32v4"/></svg>
+      Tram &amp; Bus
+    </div>
+    <div class="foot-btn" data-action="view" data-view="food" id="food-btn">
+      <svg class="icon" viewBox="0 0 44 44"><path d="M13 8v9a4 4 0 0 0 8 0V8M17 8v28M31 36V8c-4 3-6 8-6 15h6"/></svg>
+      Restaurants
     </div>
     <div class="foot-btn" data-action="look">
       <svg class="icon only-classic" viewBox="0 0 44 44"><path d="M22 5l3.6 8.4 8.4-3.4-3.4 8.4L39 22l-8.4 3.6 3.4 8.4-8.4-3.4L22 39l-3.6-8.4-8.4 3.4 3.4-8.4L5 22l8.4-3.6L10 10l8.4 3.4z"/></svg>
@@ -906,9 +938,11 @@
     <div class="panel" id="panel-help">
       <div class="legend"><div><span class="badge k-s">S11</span></div><div>S-Bahn</div></div>
       <div class="legend"><div><span class="badge k-fern">RE 36</span></div><div>Fernverkehr (IC, IR, RE …)</div></div>
+      <div class="legend only-local-cfg"><div><span class="badge k-tram">20</span></div><div>Tram</div></div>
+      <div class="legend only-local-cfg"><div><span class="badge k-bus">80</span></div><div>Bus</div></div>
       <div class="legend"><div><span class="delay">+3'</span></div><div>Verspätung in Minuten, unter der planmässigen Abfahrtszeit</div></div>
       <div class="legend"><div><span class="sample-in">in 5 min</span></div><div>Zeit bis zur tatsächlichen Abfahrt (inkl. Verspätung)</div></div>
-      <div class="legend"><div><span class="platform changed">4</span></div><div>Gleisänderung – der Zug fährt auf diesem Gleis</div></div>
+      <div class="legend"><div><span class="platform changed">4</span></div><div>Gleis- oder Kantenänderung – die Abfahrt ist hier</div></div>
       <div class="legend"><div><span class="sample-tile">Filter</span></div><div>Rote Kachel = aktiver Filter</div></div>
       <div class="legend"><div><span class="sample-alert"></span></div><div>Keine Verbindung – es werden die zuletzt geladenen Daten gezeigt</div></div>
       <div class="note" id="help-note"></div>
@@ -1092,6 +1126,32 @@
     sBahnCategories: ['S', 'SN'],
     longDistanceCategories: ['IC', 'ICE', 'IR', 'RE', 'EC', 'TGV', 'RJ', 'RJX', 'NJ', 'EN', 'PE'],
 
+    // Ansicht "Tram & Bus": Abfahrten an den Haltestellen beim Bahnhof, gleiche Datenquelle
+    // und gleiches Intervall wie die Züge. Abgefragt wird nur, solange die Ansicht offen ist.
+    local: {
+      enabled: true,                              // false = Knopf ausblenden
+      title: 'Tram und Bus ab Bahnhof Altstetten und Altstetten Nord',
+      // Haltestellen: id aus transport.opendata.ch (/v1/locations?query=…), name für Hilfe und
+      // Info, tag steht klein bei der Kante ('' = nichts), limit = so viele Abfahrten holen
+      stops: [
+        { id: '8591056', name: 'Bahnhof Altstetten', tag: '', limit: 150 },
+        { id: '8591057', name: 'Bahnhof Altstetten Nord', tag: 'Nord', limit: 80 }
+      ],
+      tramCategories: ['T', 'TN'],
+      busCategories: ['B', 'BN'],                 // BN = Nachtbus (N1, N12 …)
+      stopPrefixes: ['Zürich, ', 'Zürich '],      // fallen bei Ziel und Halten weg ("Zürich, Triemlispital" -> "Triemlispital")
+      // Filter-Kacheln wie oben; via darf hier auch eine Liste sein (einer der Halte genügt)
+      filters: [
+        { id: 'alle',      label: 'Alle' },
+        { id: 'tram',      label: 'Tram', kind: 'tram' },
+        { id: 'bus',       label: 'Bus', kind: 'bus' },
+        { id: 'hb',        label: 'Richtung\nZürich HB', via: ['Zürich, Bahnhofplatz/HB', 'Zürich, Sihlquai/HB', 'Zürich, Sihlpost/HB'] },
+        { id: 'oerlikon',  label: 'Richtung\nOerlikon', via: ['Zürich Oerlikon, Bahnhof', 'Zürich Oerlikon, Bahnhof Nord', 'Zürich Oerlikon, Bahnhof Ost'] },
+        { id: 'schlieren', label: 'Richtung\nSchlieren', via: ['Schlieren, Zentrum/Bahnhof'] }
+      ],
+      defaultFilter: 'alle'
+    },
+
     // Farben (werden als CSS-Variablen gesetzt)
     colors: {
       bg: '#E9E9E9',
@@ -1106,7 +1166,8 @@
       tile2: '#D6D6D6',
       'tile2-pressed': '#B4B4B4',
       time: '#222222',
-      ok: '#1B7F3B'
+      ok: '#1B7F3B',
+      'badge-other': '#8A8A8A'                    // Bus und übrige Linien
     },
 
     // Nachtmodus: dunkles Farbschema, damit das Display den Raum nicht ausleuchtet
@@ -1127,28 +1188,58 @@
         tile2: '#2A2A2A',
         'tile2-pressed': '#4A4A4A',
         time: '#EAEAEA',
-        ok: '#3FA860'
+        ok: '#3FA860',
+        'badge-other': '#686868'
       }
     }
   };
 
-  var STORAGE_KEY = 'track-o-mat.filter';
   var LOOK_KEY = 'track-o-mat.look';
 
+  /* ---------- Abfahrtstafeln ---------- */
+  // Zwei Tafeln aus derselben Datenquelle: die Züge ab dem Bahnhof (Ansicht "trains") und
+  // Tram und Bus ab den Haltestellen davor (Ansicht "local"). Jede hat ihre eigenen Daten,
+  // ihren eigenen Filter und ihren eigenen Verbindungsstatus.
+  function makeBoard(cfg) {
+    return {
+      cfg: cfg,
+      entries: [],           // zuletzt geladene Abfahrten (aufbereitet)
+      hasData: false,        // mindestens einmal erfolgreich geladen
+      online: true,
+      tried: false,          // schon einmal abgefragt (für das Info-Fenster)
+      lastOk: 0,             // Zeitpunkt der letzten erfolgreichen Abfrage (ms)
+      loading: false,
+      nextFetchAt: 0,
+      filter: cfg.defaultFilter,
+      filterEls: {},
+      filterDefs: {}
+    };
+  }
+  var boards = {
+    trains: makeBoard({
+      name: 'Züge', stops: [{ station: CONFIG.station, limit: CONFIG.limit }],
+      kinds: { s: CONFIG.sBahnCategories, fern: CONFIG.longDistanceCategories },
+      prefixes: [CONFIG.stopPrefix], shortTo: false, numberOnly: false, platformLabel: 'Gleis',
+      filters: CONFIG.filters, defaultFilter: CONFIG.defaultFilter,
+      storageKey: 'track-o-mat.filter', container: 'filters'
+    }),
+    local: makeBoard({
+      name: 'Tram/Bus', stops: CONFIG.local.stops,
+      kinds: { tram: CONFIG.local.tramCategories, bus: CONFIG.local.busCategories },
+      prefixes: CONFIG.local.stopPrefixes, shortTo: true, numberOnly: true, platformLabel: 'Kante',
+      filters: CONFIG.local.filters, defaultFilter: CONFIG.local.defaultFilter,
+      storageKey: 'track-o-mat.filter.local', container: 'filters-local'
+    })
+  };
+  var KIND_NAMES = { tram: 'Tram', bus: 'Bus' };   // vor der Linie im Tagesspecial ("Bus 80 nach …")
+
   /* ---------- Zustand ---------- */
-  var entries = [];          // zuletzt geladene Abfahrten (aufbereitet)
-  var hasData = false;       // mindestens einmal erfolgreich geladen
-  var online = true;
-  var lastOk = 0;            // Zeitpunkt der letzten erfolgreichen Abfrage (ms)
   var lastError = '';        // letzter Ladefehler mit Zeitpunkt, für das Info-Fenster
   var lastBeatAt = 0;        // letzter Takt im Fenstertitel (ms)
   var baseTitle = document.title;
-  var loading = false;
-  var nextFetchAt = 0;
   var lastCountdownAt = 0;
   var lastTouchAt = Date.now();
   var startedAt = Date.now();
-  var currentFilter = CONFIG.defaultFilter;
   var shown = [];            // aktuell dargestellte Zeilen: { entry, inEl }
   var shownKey = '';
   var pressedEl = null;
@@ -1157,7 +1248,7 @@
   var clockMinute = '';      // Minute (HH:MM), die die Bahnhofsuhr gerade zeigt
   var clockTimer = 0;
   var rowCount = 10;         // Anzahl Zeilen der Liste (wird in layout() bestimmt)
-  var view = 'trains';       // 'trains' (Abfahrten) oder 'food' (Restaurants)
+  var view = 'trains';       // 'trains' (Züge), 'local' (Tram & Bus) oder 'food' (Restaurants)
   var look = 'classic';      // 'classic' oder 'comic'
   var resting = false;       // Ruhezeit aktiv (CONFIG.rest)
   var restWake = 0;          // Ende der laufenden Ruhezeit (ms), 0 = unbekannt
@@ -1186,9 +1277,7 @@
   /* ---------- DOM-Referenzen ---------- */
   function $(id) { return document.getElementById(id); }
   var elRows = $('rows'), elStatus = $('status'), elStatusText = $('status-text');
-  var elFilters = $('filters'), elOverlay = $('overlay');
-  var filterEls = {};
-  var filterDefs = {};
+  var elOverlay = $('overlay');
 
   /* ---------- Zeitformatierung (immer Europe/Zurich) ---------- */
   var fmtTime = new Intl.DateTimeFormat(CONFIG.locale, {
@@ -1210,7 +1299,17 @@
   }
 
   /* ---------- Daten aufbereiten ---------- */
-  function parseEntry(j) {
+  // Haltename ohne den ersten passenden Vorsatz ("Zürich, Triemlispital" -> "Triemlispital")
+  function shortName(name, prefixes) {
+    for (var i = 0; i < prefixes.length; i++) {
+      if (prefixes[i] && name.indexOf(prefixes[i]) === 0) return name.slice(prefixes[i].length);
+    }
+    return name;
+  }
+
+  // j = Abfahrt aus der API, b = Tafel, src = Haltestelle aus deren stops (für tag)
+  function parseEntry(j, b, src) {
+    var cfg = b.cfg;
     var stop = j.stop || {};
     var prog = stop.prognosis || {};
     var planned = stop.departureTimestamp ? stop.departureTimestamp * 1000 : parseTime(stop.departure);
@@ -1231,50 +1330,63 @@
 
     var cat = (j.category || '').trim();
     var num = j.number == null ? '' : String(j.number).trim();
-    var kind = CONFIG.sBahnCategories.indexOf(cat) >= 0 ? 's'
-             : CONFIG.longDistanceCategories.indexOf(cat) >= 0 ? 'fern' : 'other';
+    var kind = 'other';
+    for (var k in cfg.kinds) {
+      if (cfg.kinds[k] && cfg.kinds[k].indexOf(cat) >= 0) { kind = k; break; }
+    }
     // Sehr lange Nummern sind Zugnummern, keine Liniennummern -> weglassen
     if (num.length > 3) num = '';
-    var line = kind === 's' ? cat + num : (num ? cat + ' ' + num : cat);
+    // Züge: "S11", "IR 35"; Tram und Bus nur mit Nummer: "80", "N1"
+    var line = cfg.numberOnly ? (num || cat) : kind === 's' ? cat + num : (num ? cat + ' ' + num : cat);
 
-    // Richtungsfilter: Ziel und alle späteren Halte merken. Die nächsten Halte (ohne das
-    // Ziel) stehen klein unter dem Ziel; der erste Eintrag der Liste ist diese Station selbst.
+    // Richtungsfilter: Ziel und alle späteren Halte merken (volle Namen wie in der API). Die
+    // nächsten Halte (ohne das Ziel) stehen klein unter dem Ziel; der erste Eintrag der
+    // Liste ist diese Station selbst.
     var to = j.to || '';
-    var stops = {}, next = [], pre = CONFIG.stopPrefix;
+    var stops = {}, next = [];
     stops[to] = true;
     var pass = j.passList || [];
     for (var i = 1; i < pass.length; i++) {
       var name = pass[i].station && pass[i].station.name;
       if (!name) continue;
       stops[name] = true;
-      if (name !== to && next.length < CONFIG.nextStops) next.push(pre && name.indexOf(pre) === 0 ? name.slice(pre.length) : name);
+      if (name !== to && next.length < CONFIG.nextStops) next.push(shortName(name, cfg.prefixes));
     }
     var via = !CONFIG.nextStops ? '' : next.length ? 'via ' + next.join(', ') : pass.length > 1 ? 'ohne Zwischenhalt' : '';
 
     return {
-      key: (j.name || line) + '|' + planned + '|' + to,
-      line: line || '?', kind: kind, to: to,
-      planned: planned, real: real, delay: delay,
+      key: (j.name || line) + '|' + planned + '|' + to + '|' + (src.id || ''),
+      line: line || '?', kind: kind, to: cfg.shortTo ? shortName(to, cfg.prefixes) : to,
+      planned: planned, real: real, delay: delay, tag: src.tag || '',
       platform: now, platformChanged: changed, stops: stops, via: via
     };
   }
 
-  function matchesFilter(e) {
-    var f = filterDefs[currentFilter];
+  function matchesFilter(b, e) {
+    var f = b.filterDefs[b.filter];
     if (!f) return true;
     if (f.kind && e.kind !== f.kind) return false;
-    if (f.via && !e.stops[f.via]) return false;
+    if (f.via) {
+      var via = [].concat(f.via), hit = false;
+      for (var i = 0; i < via.length && !hit; i++) hit = !!e.stops[via[i]];
+      if (!hit) return false;
+    }
     return true;
   }
 
   // Sichtbare Abfahrten: nicht abgefahren, zum Filter passend, auf rowCount begrenzt
-  function visibleEntries(now) {
+  function visibleEntries(b, now) {
     var out = [], max = rowCount + (look === 'comic' ? 1 : 0);   // + Tagesspecial
-    for (var i = 0; i < entries.length && out.length < max; i++) {
-      var e = entries[i];
-      if (e.real >= now && matchesFilter(e)) out.push(e);
+    for (var i = 0; i < b.entries.length && out.length < max; i++) {
+      var e = b.entries[i];
+      if (e.real >= now && matchesFilter(b, e)) out.push(e);
     }
     return out;
+  }
+
+  // "Gleis 4" bzw. "Kante C"
+  function platformText(b, e) {
+    return b.cfg.platformLabel + ' ' + (e.platform || '–');
   }
 
   function countdownText(e, now) {
@@ -1299,21 +1411,21 @@
   // Liste neu aufbauen – nur bei neuen Daten, Filterwechsel oder wenn ein Zug abgefahren ist
   function render() {
     if (view === 'food') { renderFood(); return; }
-    var now = Date.now();
-    var list = visibleEntries(now);
+    var b = boards[view], now = Date.now();
+    var list = visibleEntries(b, now);
     var frag = document.createDocumentFragment();
     shown = [];
 
     if (!list.length) {
       frag.appendChild(el('div', 'empty',
-        hasData ? 'Zurzeit keine Abfahrten für diesen Filter'
-                : (online ? 'Abfahrten werden geladen …' : 'Keine Daten verfügbar')));
+        b.hasData ? 'Zurzeit keine Abfahrten für diesen Filter'
+                  : (b.online ? 'Abfahrten werden geladen …' : 'Keine Daten verfügbar')));
     }
 
-    if (look === 'comic') renderHero(list[0], now);
+    if (look === 'comic') renderHero(b, list[0], now);
     for (var i = look === 'comic' ? 1 : 0; i < list.length; i++) {
       var e = list[i];
-      if (look === 'comic') { frag.appendChild(comicRow(e, now)); continue; }
+      if (look === 'comic') { frag.appendChild(comicRow(b, e, now)); continue; }
       var row = el('div', 'row');
 
       var cTime = el('div', 'c-time');
@@ -1337,8 +1449,9 @@
       if (e.via) cDest.appendChild(el('div', 'c-via', e.via));
       row.appendChild(cDest);
 
-      var cPlat = el('div', 'c-platform');
+      var cPlat = el('div', 'c-platform' + (e.tag ? ' tagged' : ''));
       cPlat.appendChild(el('span', 'platform' + (e.platformChanged ? ' changed' : ''), e.platform || '–'));
+      if (e.tag) cPlat.appendChild(el('div', 'p-tag', e.tag));
       row.appendChild(cPlat);
 
       frag.appendChild(row);
@@ -1346,8 +1459,22 @@
     }
 
     elRows.replaceChildren(frag);
+    if (look === 'comic') fitText(elRows.querySelectorAll('.d-name'), 21, 15);
+    else fitText(elRows.querySelectorAll('.d-to'), 28, 20);
     shownKey = keyOf(list);
     lastCountdownAt = now;
+  }
+
+  // Lange Ziele ("Unterengstringen, Sennenbüel") kleiner schreiben statt abschneiden, höchstens
+  // bis minPx; reicht das nicht, kürzt "…" den Rest. Erst alles messen, dann alles setzen.
+  function fitText(nodes, basePx, minPx) {
+    var sizes = [];
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      sizes.push(n.scrollWidth > n.clientWidth + 1
+        ? Math.max(minPx, Math.floor(basePx * n.clientWidth / n.scrollWidth)) : 0);
+    }
+    for (var k = 0; k < nodes.length; k++) if (sizes[k]) nodes[k].style.fontSize = sizes[k] + 'px';
   }
 
   /* ---------- Comic-Look: Zeilen und Tagesspecial ---------- */
@@ -1355,8 +1482,8 @@
     return e.delay >= CONFIG.minDelayMin ? el('span', 'd-delay', '+' + e.delay + "'") : null;
   }
 
-  // "4 MIN | S14 | Ziel 07:55 +1' ......... GLEIS 2"
-  function comicRow(e, now) {
+  // "4 MIN | S14 | Ziel 07:55 +1' ......... GLEIS 2" (Tram & Bus: "… 07:55 [NORD] … KANTE K")
+  function comicRow(b, e, now) {
     var row = el('div', 'row'), panel = el('div', 'cpanel');
     var cMin = el('div', 'c-min');
     if (e.real - now < 45000) cMin.appendChild(el('span', 'n', 'jetzt'));
@@ -1374,6 +1501,7 @@
     go.appendChild(el('span', 'd-name', e.to));
     go.appendChild(el('span', 'd-time', hhmm(e.planned)));
     if (box) go.appendChild(box);
+    if (e.tag) go.appendChild(el('span', 'd-tag', e.tag));
     go.appendChild(el('span', 'd-dots'));
     if (e.via) {                                 // die nächsten Halte klein unter dem Ziel
       var stack = el('div', 'c-stack');
@@ -1383,26 +1511,29 @@
     } else panel.appendChild(go);
 
     panel.appendChild(el('div', 'c-gleis' + (e.platformChanged ? ' changed' : ''),
-      e.platform ? 'Gleis ' + e.platform : '–'));
+      e.platform ? platformText(b, e) : '–'));
     row.appendChild(panel);
     return row;
   }
 
   // Der nächste Zug gross, mit der Restzeit im Stern. Ab runMin Minuten heisst es «Min! Los!».
-  function renderHero(e, now) {
+  function renderHero(b, e, now) {
     var hero = $('hero');
     hero.classList.toggle('off', !e);
     if (!e) return;
-    var title = e.line.replace(' ', '') + ' nach ' + e.to;
+    var title = (KIND_NAMES[e.kind] && b.cfg.numberOnly ? KIND_NAMES[e.kind] + ' ' : '') +
+      e.line.replace(' ', '') + ' nach ' + e.to;
     $('hero-label').textContent = CONFIG.comic.special;
     $('hero-title').textContent = title;
-    $('hero-title').classList.toggle('long', title.length > 19);
+    $('hero-title').classList.toggle('long', title.length > 19 && title.length <= 26);
+    $('hero-title').classList.toggle('longer', title.length > 26);
 
     var sub = document.createDocumentFragment(), box = delayBox(e);
     sub.appendChild(el('span', null, 'ab ' + hhmm(e.planned)));
     if (box) sub.appendChild(box);
     sub.appendChild(el('span', null, '·'));
-    sub.appendChild(el('span', e.platformChanged ? 'changed' : null, e.platform ? 'Gleis ' + e.platform : 'Gleis –'));
+    sub.appendChild(el('span', e.platformChanged ? 'changed' : null, platformText(b, e)));
+    if (e.tag) sub.appendChild(el('span', 'd-tag', e.tag));
     if (e.via) { sub.appendChild(el('span', null, '·')); sub.appendChild(el('span', 'h-via', e.via)); }
     $('hero-sub').replaceChildren(sub);
 
@@ -1437,7 +1568,7 @@
   // Nur die "in X min"-Texte anpassen; neu aufbauen nur, wenn sich die Zeilen ändern
   function refreshCountdown(now) {
     if (view === 'food') { renderFood(); return; }   // Öffnungsstatus nachführen
-    if (look === 'comic' || keyOf(visibleEntries(now)) !== shownKey) { render(); return; }
+    if (look === 'comic' || keyOf(visibleEntries(boards[view], now)) !== shownKey) { render(); return; }
     for (var i = 0; i < shown.length; i++) {
       var t = countdownText(shown[i].entry, now);
       if (shown[i].inEl.textContent !== t) shown[i].inEl.textContent = t;
@@ -1447,20 +1578,26 @@
   }
 
   function updateStatus() {
-    var last = lastOk ? hhmm(lastOk) : '';
-    if (view === 'trains') {
-      elStatus.className = online ? '' : 'offline';
-      if (online) {
+    var b = boards[view];
+    if (b) {
+      var last = b.lastOk ? hhmm(b.lastOk) : '';
+      elStatus.className = b.online ? '' : 'offline';
+      if (b.online) {
         elStatusText.textContent = last ? 'Letzte Aktualisierung ' + last : '';
       } else {
         elStatusText.textContent = 'Keine Verbindung – ' +
           (last ? 'letzte Aktualisierung ' + last : 'noch keine Daten');
       }
     }
-    $('info-last').textContent = last || '–';
+    // Info-Fenster: Tram und Bus erst, wenn die Ansicht einmal abgefragt wurde
+    // ("Züge 08:15 · Tram/Bus 08:14", "Züge in Ordnung · Tram/Bus unterbrochen")
+    var t = boards.trains, l = boards.local;
+    var stamp = function (x) { return x.lastOk ? hhmm(x.lastOk) : '–'; };
+    var conn = function (x) { return x.online ? 'in Ordnung' : 'unterbrochen'; };
+    $('info-last').textContent = l.tried ? t.cfg.name + ' ' + stamp(t) + ' · ' + l.cfg.name + ' ' + stamp(l) : stamp(t);
+    $('info-conn').textContent = l.tried ? t.cfg.name + ' ' + conn(t) + ' · ' + l.cfg.name + ' ' + conn(l) : conn(t);
     $('info-places-last').textContent = placesAt ? fmtStamp.format(new Date(placesAt)) + ' Uhr'
       : placesState === 'error' ? 'noch keine Daten' : '–';
-    $('info-conn').textContent = online ? 'in Ordnung' : 'unterbrochen';
     $('info-error').textContent = lastError || '–';
   }
 
@@ -1622,14 +1759,15 @@
     document.documentElement.classList.toggle('resting', on);
     if (on) {
       // Alte Abfahrten verwerfen, damit beim Aufwachen nichts Veraltetes erscheint
-      entries = [];
-      hasData = false;
+      for (var n in boards) { boards[n].entries = []; boards[n].hasData = false; }
       closeOverlay();
       restWake = nextWake(now);
       updateRest(now);
     } else {
-      online = true;
-      nextFetchAt = 0;           // sofort frisch laden
+      for (var m in boards) {
+        boards[m].online = true;
+        boards[m].nextFetchAt = 0;   // sofort frisch laden
+      }
       nextTempAt = 0;
     }
     render();
@@ -1647,76 +1785,96 @@
     return 'Fehler: ' + msg.slice(0, 60);
   }
 
-  function loadData() {
-    if (loading) return;
-    loading = true;
-    nextFetchAt = Date.now() + CONFIG.refreshSec * 1000;
+  // Lädt die Abfahrten einer Tafel. Bei mehreren Haltestellen werden alle gleichzeitig
+  // abgefragt und zu einer Liste zusammengeführt; scheitert eine, bleiben die alten Daten stehen.
+  function loadBoard(b) {
+    if (b.loading) return;
+    b.loading = true;
+    b.tried = true;
+    b.nextFetchAt = Date.now() + CONFIG.refreshSec * 1000;
 
     var ctrl = new AbortController();
     var timeout = setTimeout(function () { ctrl.abort(); }, CONFIG.fetchTimeoutSec * 1000);
-    var url = CONFIG.apiUrl + '?station=' + encodeURIComponent(CONFIG.station) + '&limit=' + CONFIG.limit;
-    for (var f = 0; f < CONFIG.apiFields.length; f++) url += '&fields[]=' + CONFIG.apiFields[f];
+    var fields = '';
+    for (var f = 0; f < CONFIG.apiFields.length; f++) fields += '&fields[]=' + CONFIG.apiFields[f];
 
-    fetch(url, { cache: 'no-store', signal: ctrl.signal })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      })
-      .then(function (data) {
+    Promise.all(b.cfg.stops.map(function (src) {
+      var url = CONFIG.apiUrl + '?' + (src.id ? 'id=' + encodeURIComponent(src.id) : 'station=' + encodeURIComponent(src.station)) +
+        '&limit=' + (src.limit || CONFIG.limit) + fields;
+      return fetch(url, { cache: 'no-store', signal: ctrl.signal })
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          if (!data || !Array.isArray(data.stationboard)) throw new Error('Unerwartete Antwort');
+          return { src: src, data: data };
+        });
+    }))
+      .then(function (results) {
         if (resting) return;     // während der Ruhezeit eingetroffen: verwerfen
-        if (!data || !Array.isArray(data.stationboard)) throw new Error('Unerwartete Antwort');
         var list = [];
-        for (var i = 0; i < data.stationboard.length; i++) {
-          var e = parseEntry(data.stationboard[i]);
-          if (e) list.push(e);
-        }
+        results.forEach(function (res) {
+          for (var i = 0; i < res.data.stationboard.length; i++) {
+            var e = parseEntry(res.data.stationboard[i], b, res.src);
+            if (e) list.push(e);
+          }
+        });
         // Reihenfolge wie an der Bahnhofsanzeige: nach planmässiger Abfahrt
-        list.sort(function (a, b) { return a.planned - b.planned; });
-        entries = list;
-        hasData = true;
-        online = true;
-        lastOk = Date.now();
-        render();
+        list.sort(function (x, y) { return x.planned - y.planned; });
+        b.entries = list;
+        b.hasData = true;
+        b.online = true;
+        b.lastOk = Date.now();
+        if (boards[view] === b) render();
         updateStatus();
       })
       .catch(function (err) {
         if (resting) return;
         // Letzte Daten bleiben stehen; der nächste Versuch folgt automatisch
-        online = false;
-        lastError = fmtStamp.format(new Date()) + ' – ' + errorText(err);
+        ctrl.abort();            // die übrigen Abfragen dieser Runde abbrechen
+        b.online = false;
+        lastError = fmtStamp.format(new Date()) + ' – ' + (b === boards.trains ? '' : b.cfg.name + ': ') + errorText(err);
         updateStatus();
-        if (!hasData) render();
+        if (!b.hasData && boards[view] === b) render();
       })
       .then(function () {
         clearTimeout(timeout);
-        loading = false;
+        b.loading = false;
       });
   }
 
   /* ---------- Filter ---------- */
-  function setFilter(id) {
-    if (!filterEls[id]) id = CONFIG.defaultFilter;
-    if (id === currentFilter && filterEls[id].classList.contains('active')) return;
-    currentFilter = id;
-    for (var k in filterEls) filterEls[k].classList.toggle('active', k === id);
-    try { localStorage.setItem(STORAGE_KEY, id); } catch (err) { /* Speicher nicht verfügbar */ }
-    render();
+  function setFilter(b, id) {
+    if (!b.filterEls[id]) id = b.cfg.defaultFilter;
+    if (!b.filterEls[id]) return;
+    if (id === b.filter && b.filterEls[id].classList.contains('active')) return;
+    b.filter = id;
+    for (var k in b.filterEls) b.filterEls[k].classList.toggle('active', k === id);
+    try { localStorage.setItem(b.cfg.storageKey, id); } catch (err) { /* Speicher nicht verfügbar */ }
+    if (boards[view] === b) render();
   }
 
-  function buildFilters() {
-    CONFIG.filters.forEach(function (f) {
+  function buildFilters(name) {
+    var b = boards[name], box = $(b.cfg.container), filters = b.cfg.filters;
+    filters.forEach(function (f) {
       var t = el('div', 'tile', f.label);
       t.setAttribute('data-filter', f.id);
-      elFilters.appendChild(t);
-      filterEls[f.id] = t;
-      filterDefs[f.id] = f;
+      t.setAttribute('data-board', name);
+      box.appendChild(t);
+      b.filterEls[f.id] = t;
+      b.filterDefs[f.id] = f;
     });
     // Alle Kacheln in einer Zeile; ab 5 Kacheln kleinere Schrift, damit die Texte passen
-    elFilters.style.gridTemplateColumns = 'repeat(' + CONFIG.filters.length + ', 1fr)';
-    elFilters.classList.toggle('many', CONFIG.filters.length > 4);
+    box.style.gridTemplateColumns = 'repeat(' + filters.length + ', 1fr)';
+    box.classList.toggle('many', filters.length > 4);
     var saved = null;
-    try { saved = localStorage.getItem(STORAGE_KEY); } catch (err) { /* ignorieren */ }
-    setFilter(saved || CONFIG.defaultFilter);
+    try { saved = localStorage.getItem(b.cfg.storageKey); } catch (err) { /* ignorieren */ }
+    setFilter(b, saved || b.cfg.defaultFilter);
+  }
+
+  function resetFilters() {
+    for (var n in boards) setFilter(boards[n], boards[n].cfg.defaultFilter);
   }
 
   /* ---------- Overlay ---------- */
@@ -2240,15 +2398,28 @@
   }
 
   function setView(next) {
+    if (next !== 'food' && next !== 'local') next = 'trains';
     if (next === view) return;
     view = next;
     foodFilter = 'open';
     foodPage = 0;
     $('app').classList.toggle('food', view === 'food');
+    $('app').classList.toggle('local', view === 'local');
+    markView();
+    if (boards[view]) $('thead-platform').textContent = boards[view].cfg.platformLabel;
     if (view === 'food' && placesState !== 'ok') loadPlaces();
-    layout();          // im Comic-Look hat die Restaurantliste mehr Platz (kein Tagesspecial)
+    // Tram und Bus werden nur abgefragt, solange die Ansicht offen ist: beim Öffnen sofort
+    // laden, wenn der letzte Stand älter als das Intervall ist
+    var b = boards.local;
+    if (view === 'local' && !resting && Date.now() - b.lastOk >= CONFIG.refreshSec * 1000) loadBoard(b);
+    layout();          // im Comic-Look haben die Listen je nach Ansicht mehr oder weniger Platz
     render();
     updateStatus();
+  }
+
+  // Knopf der gezeigten Ansicht in der Fusszeile markieren
+  function markView() {
+    ['trains', 'local', 'food'].forEach(function (v) { $(v + '-btn').classList.toggle('active', v === view); });
   }
 
   /* ---------- Erscheinungsbild ---------- */
@@ -2271,9 +2442,12 @@
   function onAction(action, target) {
     if (action === 'help' || action === 'info') openOverlay(action);
     else if (action === 'close') closeOverlay();
-    else if (action === 'refresh') { if (!resting) loadData(); closeOverlay(); }
-    else if (action === 'reset') { setFilter(CONFIG.defaultFilter); closeOverlay(); }
-    else if (action === 'food') setView(view === 'food' ? 'trains' : 'food');
+    else if (action === 'refresh') {
+      if (!resting) { loadBoard(boards.trains); if (view === 'local') loadBoard(boards.local); }
+      closeOverlay();
+    }
+    else if (action === 'reset') { resetFilters(); closeOverlay(); }
+    else if (action === 'view') setView(target && target.getAttribute('data-view'));
     else if (action === 'look') setLook(look === 'comic' ? 'classic' : 'comic', true);
     else if (action === 'menu') openMenu(target && target.getAttribute('data-place'));
   }
@@ -2312,7 +2486,7 @@
     document.addEventListener('click', function (ev) {
       var t = touchTarget(ev.target);
       if (!t) return;
-      if (t.hasAttribute('data-filter')) setFilter(t.getAttribute('data-filter'));
+      if (t.hasAttribute('data-filter')) setFilter(boards[t.getAttribute('data-board')], t.getAttribute('data-filter'));
       else if (t.hasAttribute('data-food')) onFood(t.getAttribute('data-food'));
       else onAction(t.getAttribute('data-action'), t);
     });
@@ -2348,7 +2522,8 @@
 
     updateClock(now);
 
-    if (!resting && now >= nextFetchAt) loadData();
+    if (!resting && now >= boards.trains.nextFetchAt) loadBoard(boards.trains);
+    if (!resting && view === 'local' && now >= boards.local.nextFetchAt) loadBoard(boards.local);
     if (overlayMode === 'info' && now >= nextStatsAt) loadStats();
     if (CONFIG.weather.enabled) {
       if (!resting && now >= nextTempAt) loadTemp();
@@ -2372,7 +2547,7 @@
       lastTouchAt = now;
       if (overlayMode) closeOverlay();
       if (view !== 'trains') setView('trains');
-      if (currentFilter !== CONFIG.defaultFilter) setFilter(CONFIG.defaultFilter);
+      resetFilters();
     }
 
     // Nächtliches Neuladen (frühestens 5 Minuten nach dem Start, damit keine Schleife entsteht)
@@ -2419,10 +2594,18 @@
     $('info-station').textContent = CONFIG.station;
     $('info-interval').textContent = 'alle ' + CONFIG.refreshSec + ' Sekunden';
     $('info-places-interval').textContent = 'einmal täglich ab ' + CONFIG.restaurants.refreshAt + ' Uhr';
+    // "Tram & Bus zeigt die Haltestellen «A» und «B»; «Nord» bei der Kante heisst ab «B»."
+    var L = CONFIG.local, stopNames = L.stops.map(function (s) { return '«' + s.name + '»'; });
+    var tagged = L.stops.filter(function (s) { return s.tag; }).map(function (s) {
+      return '«' + s.tag + '» bei der Kante heisst ab «' + s.name + '»';
+    });
     $('help-note').textContent = CONFIG.appName + ' – Daten: transport.opendata.ch. ' +
+      (L.enabled ? 'Tram & Bus zeigt ' + (stopNames.length > 1 ? 'die Haltestellen ' : 'die Haltestelle ') +
+        stopNames.join(' und ').replace(/ und (?=.* und )/g, ', ') + (tagged.length ? '; ' + tagged.join(', ') : '') + '. ' : '') +
       (CONFIG.idleResetSec > 0
-        ? 'Der Filter springt nach ' + Math.round(CONFIG.idleResetSec / 60) + ' Minuten ohne Berührung auf «Alle» zurück.'
+        ? 'Nach ' + Math.round(CONFIG.idleResetSec / 60) + ' Minuten ohne Berührung springt die Anzeige zurück auf «Züge» und den Filter «Alle».'
         : '');
+    $('label-local').textContent = L.title;
 
     $('c-presenter').textContent = CONFIG.comic.presenter;
     $('c-title').textContent = CONFIG.appName + '!';
@@ -2437,21 +2620,31 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { layout(); render(); });
 
     bindInput();
-    buildFilters();
+    buildFilters('trains');
+    buildFilters('local');
     buildClockFace();
     buildDonut();
     buildBurst();
+    markView();
     if (!CONFIG.weather.enabled) $('info-temp').parentNode.style.display = 'none';
+    var i, rows;
     if (!CONFIG.restaurants.enabled) {
       $('food-btn').style.display = 'none';
-      var rows = document.querySelectorAll('.only-places');
-      for (var i = 0; i < rows.length; i++) rows[i].style.display = 'none';
+      rows = document.querySelectorAll('.only-places');
+      for (i = 0; i < rows.length; i++) rows[i].style.display = 'none';
     }
+    if (!L.enabled) {
+      $('local-btn').style.display = 'none';
+      rows = document.querySelectorAll('.only-local-cfg');
+      for (i = 0; i < rows.length; i++) rows[i].style.display = 'none';
+    }
+    // Ohne weitere Ansicht braucht es keinen Knopf «Züge»
+    if (!L.enabled && !CONFIG.restaurants.enabled) $('trains-btn').style.display = 'none';
     updateClock(Date.now());
     updateStatus();
     // In der Ruhezeit gestartet (etwa nach dem Neuladen um 03:30): gleich ruhen, nichts abfragen
     if (isResting(Date.now())) setResting(true, Date.now());
-    else loadData();
+    else loadBoard(boards.trains);
     setInterval(tick, 1000);   // läuft für die gesamte Lebensdauer der Seite
   }
 
