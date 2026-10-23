@@ -1140,13 +1140,19 @@
       tramCategories: ['T', 'TN'],
       busCategories: ['B', 'BN'],                 // BN = Nachtbus (N1, N12 …)
       stopPrefixes: ['Zürich, ', 'Zürich '],      // fallen bei Ziel und Halten weg ("Zürich, Triemlispital" -> "Triemlispital")
-      // Filter-Kacheln wie oben; via darf hier auch eine Liste sein (einer der Halte genügt)
+      // Filter-Kacheln wie oben; via darf hier auch eine Liste sein (einer der Halte genügt).
+      // hints: Hinweis je via-Halt, der bei aktivem Filter statt der nächsten Halte unter dem Ziel steht
       filters: [
         { id: 'alle',      label: 'Alle' },
         { id: 'tram',      label: 'Tram', kind: 'tram' },
         { id: 'bus',       label: 'Bus', kind: 'bus' },
-        // SIX an der Hardturmstrasse 201: Haltestelle Sportweg (rund 340 m), ab Altstetten nur Tram 51
-        { id: 'six',       label: 'Richtung\nSIX', via: ['Zürich, Sportweg'] }
+        // SIX an der Hardturmstrasse 201, Haltestelle Bernoulli-Häuser (Tram 8 und 17). Wege laut
+        // Fahrplan: Bus 78/80/89/485 bis Tüffenwies oder Bus 45 bis Grünaustrasse, dort Tram 17;
+        // oder Tram 51 bis Sportweg (rund 340 m zu Fuss)
+        { id: 'six',       label: 'Richtung\nSIX', via: ['Zürich, Tüffenwies', 'Zürich, Grünaustrasse', 'Zürich, Sportweg'],
+          hints: { 'Zürich, Tüffenwies': 'bis Tüffenwies, dann Tram 17',
+                   'Zürich, Grünaustrasse': 'bis Grünaustrasse, dann Tram 17',
+                   'Zürich, Sportweg': 'bis Sportweg, dann zu Fuss' } }
       ],
       defaultFilter: 'alle'
     },
@@ -1383,6 +1389,19 @@
     return out;
   }
 
+  // Kleine Zeile unter dem Ziel: die nächsten Halte, oder bei einem Filter mit hints der
+  // Hinweis zum ersten passenden Halt ("bis Tüffenwies, dann Tram 17")
+  function viaText(b, e) {
+    var f = b.filterDefs[b.filter];
+    if (f && f.hints && f.via) {
+      var via = [].concat(f.via);
+      for (var i = 0; i < via.length; i++) {
+        if (e.stops[via[i]] && f.hints[via[i]]) return f.hints[via[i]];
+      }
+    }
+    return e.via;
+  }
+
   // "Gleis 4" bzw. "Kante C"
   function platformText(b, e) {
     return b.cfg.platformLabel + ' ' + (e.platform || '–');
@@ -1445,7 +1464,8 @@
 
       var cDest = el('div', 'c-dest');
       cDest.appendChild(el('div', 'd-to', e.to));
-      if (e.via) cDest.appendChild(el('div', 'c-via', e.via));
+      var via = viaText(b, e);
+      if (via) cDest.appendChild(el('div', 'c-via', via));
       row.appendChild(cDest);
 
       var cPlat = el('div', 'c-platform' + (e.tag ? ' tagged' : ''));
@@ -1502,10 +1522,11 @@
     if (box) go.appendChild(box);
     if (e.tag) go.appendChild(el('span', 'd-tag', e.tag));
     go.appendChild(el('span', 'd-dots'));
-    if (e.via) {                                 // die nächsten Halte klein unter dem Ziel
+    var via = viaText(b, e);
+    if (via) {                                   // die nächsten Halte klein unter dem Ziel
       var stack = el('div', 'c-stack');
       stack.appendChild(go);
-      stack.appendChild(el('div', 'd-via', e.via));
+      stack.appendChild(el('div', 'd-via', via));
       panel.appendChild(stack);
     } else panel.appendChild(go);
 
@@ -1533,7 +1554,8 @@
     sub.appendChild(el('span', null, '·'));
     sub.appendChild(el('span', e.platformChanged ? 'changed' : null, platformText(b, e)));
     if (e.tag) sub.appendChild(el('span', 'd-tag', e.tag));
-    if (e.via) { sub.appendChild(el('span', null, '·')); sub.appendChild(el('span', 'h-via', e.via)); }
+    var via = viaText(b, e);
+    if (via) { sub.appendChild(el('span', null, '·')); sub.appendChild(el('span', 'h-via', via)); }
     $('hero-sub').replaceChildren(sub);
 
     var soon = e.real - now < 45000, mins = Math.ceil((e.real - now) / 60000);
