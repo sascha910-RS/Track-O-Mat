@@ -589,16 +589,7 @@ Eingestellt wird das im Block `local` des `CONFIG`: die Haltestellen (`stops`, m
 Nummer aus `https://transport.opendata.ch/v1/locations?query=…`, dem Zusatz bei der Kante
 und der Anzahl Abfahrten pro Abfrage), die Kategorien für Tram und Bus und die
 Filter-Kacheln. Ein Richtungsfilter (`via`) darf hier eine Liste von Haltestellen sein;
-es genügt, wenn die Linie eine davon anfährt. Mit `hints` steht bei aktivem Filter statt
-der nächsten Halte ein Hinweis unter dem Ziel, je nachdem, welche dieser Haltestellen die
-Linie anfährt. `enabled: false` blendet den Knopf aus.
-
-Der Filter «Richtung SIX» (Hardturmstrasse 201, Haltestelle Bernoulli-Häuser) zeigt die
-Wege, die der Fahrplan ab Altstetten vorschlägt: Bus 78, 80, 89 oder 485 bis Tüffenwies
-bzw. Bus 45 bis Grünaustrasse und dort umsteigen auf Tram 17, oder Tram 51 bis Sportweg
-und den Rest zu Fuss. Ob der Anschluss aufs Tram 17 passt, prüft die Anzeige nicht; es
-fährt tagsüber etwa alle 7 bis 8 Minuten. Tram 8 ist ab Altstetten mit dem Bus nur auf
-einem Umweg erreichbar (Bus 31 bis Hardplatz) und deshalb nicht dabei.
+es genügt, wenn die Linie eine davon anfährt. `enabled: false` blendet den Knopf aus.
 
 ### Restaurants
 
