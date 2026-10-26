@@ -292,7 +292,11 @@ sich gegenseitig, deshalb stehen alle Funktionen in einer einzigen Liste.
 | `--ozone-platform=wayland` | nur unter Wayland, wird automatisch gesetzt |
 
 Zusätzlich setzt das Skript vor jedem Start im Profil `exited_cleanly` auf `true`,
-damit Chromium nach einem Absturz nichts wiederherstellen will. `--incognito` wird
+damit Chromium nach einem Absturz nichts wiederherstellen will. Ausserdem ist der Ordner
+`Default/Sessions` im Profil ein Verweis auf einen Ordner im Arbeitsspeicher
+(`$XDG_RUNTIME_DIR/track-o-mat-sessions`): Chromium schreibt bei jeder Titeländerung der
+Seite, also bei jedem Takt für den Wächter, in seine Sitzungsdateien. Im Arbeitsspeicher
+nützt das die SD-Karte nicht ab; der Kiosk braucht keine wiederhergestellte Sitzung. `--incognito` wird
 bewusst nicht verwendet, weil sonst die Filterwahl nicht gespeichert bliebe.
 
 ## 7. Tastenkürzel für die Wartung

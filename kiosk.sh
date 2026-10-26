@@ -16,6 +16,13 @@ STOP_FLAG="$RUN_DIR/track-o-mat.stop"              # existiert = Wartungsmodus (
 PID_FILE="$RUN_DIR/track-o-mat.pid"
 RESTART_DELAY=2
 
+# Chromium schreibt bei jeder Titeländerung in seine Sitzungsdateien, also bei jedem Takt
+# für den Wächter (alle 10 s). Der Kiosk braucht keine wiederhergestellte Sitzung; damit das
+# nicht die SD-Karte abnützt, ist Default/Sessions im Profil ein Verweis auf einen Ordner im
+# Arbeitsspeicher. Nach einem Neustart des Pi ist er leer und wird neu angelegt.
+SESSION_DIR="$PROFILE/Default/Sessions"
+SESSION_RAM="$RUN_DIR/track-o-mat-sessions"
+
 # Ressourcen-Monitor im Info-Fenster: misst CPU-Auslastung und belegten Arbeitsspeicher und
 # legt sie als kleine Script-Datei ab, die die Seite liest (sie darf /proc nicht selbst lesen).
 # Die Datei liegt in $RUN_DIR, also im Arbeitsspeicher, nicht auf der SD-Karte.
@@ -453,6 +460,26 @@ loop_running() {
   [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
 }
 
+# Legt Default/Sessions als Verweis in den Arbeitsspeicher an (siehe SESSION_RAM). Klappt das
+# nicht, startet Chromium trotzdem und schreibt die Sitzung wie bisher auf die Karte.
+sessions_to_ram() {
+  mkdir -p "$SESSION_RAM" "$PROFILE/Default" 2>/dev/null || return 0
+  [ "$(readlink "$SESSION_DIR" 2>/dev/null)" = "$SESSION_RAM" ] && return 0
+  if [ -L "$SESSION_DIR" ]; then
+    rm -f "$SESSION_DIR"                           # Verweis an einen anderen Ort
+  elif [ -d "$SESSION_DIR" ]; then
+    # Alte Sitzung auf der Karte wird nicht gebraucht. Nur die Dateien und den dann leeren
+    # Ordner löschen; liegt darin ein Unterordner, bleibt er stehen (dann wie bisher).
+    rm -f "$SESSION_DIR"/* 2>/dev/null
+    rmdir "$SESSION_DIR" 2>/dev/null
+  fi
+  if [ ! -e "$SESSION_DIR" ] && ln -s "$SESSION_RAM" "$SESSION_DIR" 2>/dev/null; then
+    log "Sitzungsdateien von Chromium liegen im Arbeitsspeicher ($SESSION_RAM)"
+  else
+    log "Sitzungsdateien: Verweis in den Arbeitsspeicher nicht möglich, sie bleiben auf der Karte"
+  fi
+}
+
 run_loop() {
   if loop_running; then echo "Track-O-Mat-Kiosk läuft bereits."; exit 0; fi
   if [ -z "$BROWSER" ]; then echo "Chromium nicht gefunden." >&2; log "Start abgebrochen: Chromium nicht gefunden"; exit 1; fi
@@ -526,6 +553,7 @@ run_loop() {
     if [ -f "$PREFS" ]; then
       sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' "$PREFS"
     fi
+    sessions_to_ram
 
     # Fehlerausgabe des letzten Laufs aufbewahren: sie zeigt, warum Chromium beendet wurde
     mkdir -p "$LOG_DIR" 2>/dev/null
