@@ -497,7 +497,7 @@ open_maint_terminal() {
   [ -n "$MAINT_TERMINAL" ] || return 0
   [ -n "$WAYLAND_DISPLAY" ] || [ -n "$DISPLAY" ] || return 0
   command -v "$MAINT_TERMINAL" >/dev/null 2>&1 || return 0
-  pgrep -f -- "--rcfile $MAINT_RC" >/dev/null 2>&1 && return 0
+  pgrep -f -- "^bash --rcfile $MAINT_RC\$" >/dev/null 2>&1 && return 0     # schon offen
   printf '[ -f ~/.bashrc ] && . ~/.bashrc\n"%s" help\n' "$APP_DIR/kiosk.sh" > "$MAINT_RC" 2>/dev/null || return 0
   setsid -f "$MAINT_TERMINAL" --working-directory="$HOME" --title="Track-O-Mat Wartung" \
     --command="bash --rcfile $MAINT_RC" >/dev/null 2>&1 < /dev/null
