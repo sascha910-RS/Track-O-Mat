@@ -462,6 +462,7 @@ Nach dem Booten erscheint Track-O-Mat im Vollbild und im Hochformat. Prüfen:
 | Kiosk beenden und Neustart-Schleife stoppen | `Ctrl+Alt+Shift+Q` |
 | Terminal öffnen (öffnet sich nach dem Stoppen von selbst) | `Ctrl+Alt+T` |
 | Update holen und neu starten | `git -C ~/track-o-mat pull && sudo reboot` |
+| Taskleiste und Desktop zeigen (bis zum nächsten Neustart) | `setsid -f wf-panel-pi; setsid -f pcmanfm-pi` |
 | Kiosk wieder aktivieren | `Ctrl+Alt+Shift+K` oder `sudo reboot` |
 | Zustand abfragen | `~/track-o-mat/kiosk.sh status` |
 | Protokoll ansehen | `~/track-o-mat/kiosk.sh log` (mehr Zeilen: `kiosk.sh log 200`) |

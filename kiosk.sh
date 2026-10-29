@@ -487,6 +487,8 @@ show_help() {
       git -C ~/track-o-mat pull && sudo reboot
   Kiosk wieder starten:
       Ctrl+Alt+Shift+K   oder   ~/track-o-mat/kiosk.sh start
+  Taskleiste und Desktop zeigen (bis zum nächsten Neustart):
+      setsid -f wf-panel-pi; setsid -f pcmanfm-pi
   Pi neu starten:
       sudo reboot
   Zustand und Protokoll:
