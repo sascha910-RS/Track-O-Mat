@@ -475,18 +475,25 @@ loop_running() {
 
 # Die wichtigsten Befehle für die Wartung (kiosk.sh help, erscheint auch im Wartungs-Terminal)
 show_help() {
-  local version
-  version="$(git -C "$APP_DIR" log -1 --date=format:'%d.%m.%Y %H:%M' --format='%h vom %cd: %s' 2>/dev/null)"
+  local version subject
+  version="$(git -C "$APP_DIR" log -1 --date=format:'%d.%m.%Y %H:%M' --format='%h vom %cd' 2>/dev/null)"
+  subject="$(git -C "$APP_DIR" log -1 --format='%s' 2>/dev/null | cut -c1-64)"
+  # Zeilen höchstens 80 Zeichen breit: so viel zeigt das Terminal ohne Umbruch
   cat <<EOF
 
   Track-O-Mat – Wartung
 
-  Update holen und neu starten:  git -C ~/track-o-mat pull && sudo reboot
-  Kiosk wieder starten:          Ctrl+Alt+Shift+K   oder   ~/track-o-mat/kiosk.sh start
-  Pi neu starten:                sudo reboot
-  Zustand und Protokoll:         ~/track-o-mat/kiosk.sh status   und   ~/track-o-mat/kiosk.sh log
+  Update holen und neu starten:
+      git -C ~/track-o-mat pull && sudo reboot
+  Kiosk wieder starten:
+      Ctrl+Alt+Shift+K   oder   ~/track-o-mat/kiosk.sh start
+  Pi neu starten:
+      sudo reboot
+  Zustand und Protokoll:
+      ~/track-o-mat/kiosk.sh status   und   ~/track-o-mat/kiosk.sh log
 
   Installiert: ${version:-unbekannt}
+      ${subject}
 
 EOF
 }
