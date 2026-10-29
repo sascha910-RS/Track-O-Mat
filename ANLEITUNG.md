@@ -519,9 +519,11 @@ Eingestellt wird das im Block `weather` des `CONFIG`: `station` (Kürzel der Sta
 ### Ressourcen-Monitor
 
 Das Info-Fenster zeigt in der Zeile «System» die CPU-Auslastung und den belegten
-Arbeitsspeicher des Pi, je mit einem kleinen Balken; ab 85 % wird er rot. Die Seite darf
-diese Werte nicht selbst lesen. `kiosk.sh` misst sie deshalb alle 5 Sekunden aus
-`/proc/stat` und `/proc/meminfo` und legt sie als kleine Datei im Arbeitsspeicher ab
+Arbeitsspeicher des Pi, je mit einem kleinen Balken; ab 85 % wird er rot. Hinter der
+CPU-Auslastung steht die Temperatur des Prozessors in ganzen Graden; ab 75 °C ist sie rot
+(ab 80 °C bremst sich der Pi 4 selbst). Die Seite darf diese Werte nicht selbst lesen.
+`kiosk.sh` misst sie deshalb alle 5 Sekunden aus `/proc/stat`, `/proc/meminfo` und
+`/sys/class/thermal/thermal_zone0/temp` und legt sie als kleine Datei im Arbeitsspeicher ab
 (`/run/user/…/track-o-mat-stats.js`, nicht auf der SD-Karte). Den Ort übergibt es der Seite
 in der Adresse (`track-o-mat.html?stats=…`). Gelesen wird nur, solange das Info-Fenster
 offen ist.

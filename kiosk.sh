@@ -30,6 +30,7 @@ STATS_INTERVAL=5                                   # Sekunden zwischen zwei Mess
 STATS_FILE="$RUN_DIR/track-o-mat-stats.js"
 PROC_STAT=/proc/stat
 PROC_MEMINFO=/proc/meminfo
+THERMAL=/sys/class/thermal/thermal_zone0/temp      # Temperatur des Prozessors in tausendstel Grad
 
 # Die Seite erfährt über die Adresse, wo die Messwerte liegen
 URL="file://$APP_DIR/track-o-mat.html"
@@ -338,11 +339,11 @@ menu_loop() {
 }
 
 # Misst alle STATS_INTERVAL Sekunden die CPU-Auslastung seit der letzten Messung (aus
-# /proc/stat) und den belegten Arbeitsspeicher (MemTotal minus MemAvailable aus
-# /proc/meminfo) und schreibt beides nach STATS_FILE.
+# /proc/stat), den belegten Arbeitsspeicher (MemTotal minus MemAvailable aus
+# /proc/meminfo) und die Temperatur des Prozessors (THERMAL) und schreibt alles nach STATS_FILE.
 stats_loop() {
   local cpu_line user nice system idle iowait irq softirq steal total busy
-  local prev_total=0 prev_busy=0 cpu mem_total mem_avail cores key value unit
+  local prev_total=0 prev_busy=0 cpu mem_total mem_avail cores key value unit milli temp
   while true; do
     read -r cpu_line user nice system idle iowait irq softirq steal _ < "$PROC_STAT"
     total=$((user + nice + system + idle + iowait + irq + softirq + steal))
@@ -362,8 +363,14 @@ stats_loop() {
     done < "$PROC_MEMINFO"
     cores="$(grep -c '^cpu[0-9]' "$PROC_STAT")"
 
-    printf 'window.TRACKOMAT_STATS = {"at": %s000, "cpu": %s, "cores": %s, "memTotalKb": %s, "memUsedKb": %s};\n' \
-      "$(date +%s)" "$cpu" "${cores:-0}" "$mem_total" "$((mem_total - mem_avail))" > "$STATS_FILE.tmp" \
+    # Ganze Grade; fehlt der Sensor oder liefert er keine Zahl, steht null
+    temp=null
+    if read -r milli < "$THERMAL" 2>/dev/null && [[ "$milli" =~ ^-?[0-9]+$ ]]; then
+      temp=$(( (milli + 500) / 1000 ))
+    fi
+
+    printf 'window.TRACKOMAT_STATS = {"at": %s000, "cpu": %s, "cores": %s, "memTotalKb": %s, "memUsedKb": %s, "tempC": %s};\n' \
+      "$(date +%s)" "$cpu" "${cores:-0}" "$mem_total" "$((mem_total - mem_avail))" "$temp" > "$STATS_FILE.tmp" \
       && mv -f "$STATS_FILE.tmp" "$STATS_FILE"
     sleep "$STATS_INTERVAL"
   done

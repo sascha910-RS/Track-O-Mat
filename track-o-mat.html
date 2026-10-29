@@ -462,14 +462,18 @@
   .m-price { font-size: 21px; white-space: nowrap; }
   /* Ressourcen-Monitor: "CPU ▬▬▬ 23 %   RAM ▬▬▬ 1,2 / 3,7 GB" */
   #info-sys { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-  .meter { display: inline-block; width: 52px; height: 12px; background: var(--line); }
+  .meter { display: inline-block; width: 44px; height: 12px; background: var(--line); }
   .meter i { display: block; height: 100%; width: 0; background: var(--ok); }
   .meter.high i { background: var(--accent); }
   .sys-gap { width: 6px; }
+  .sys-temp { color: var(--muted); }
+  .sys-temp.high { color: var(--accent); font-weight: 700; }
   html.comic #info-sys { font-size: 19px; }     /* das Comic-Panel ist schmaler */
-  html.comic .meter { border: 2px solid var(--c-line); background: var(--c-paper); height: 14px; }
+  html.comic .meter { border: 2px solid var(--c-line); background: var(--c-paper); width: 40px; height: 14px; }
   html.comic .meter i { background: var(--c-mint); }
   html.comic .meter.high i { background: var(--c-red); }
+  html.comic .sys-temp { color: var(--c-text); }
+  html.comic .sys-temp.high { color: var(--c-red); }
 
   /* Sekundäre Kacheln: hellgrau, Icon über dem Text, Pfeil rechts */
   #actions {
@@ -1924,11 +1928,16 @@
       frag.appendChild(meter(st.cpu));
       frag.appendChild(el('span', null, st.cpu + ' %'));
     } else frag.appendChild(el('span', null, 'wird gemessen …'));
+    // Temperatur des Prozessors; ab 75 °C rot (ab 80 °C bremst der Pi 4 sich selbst)
+    if (typeof st.tempC === 'number') {
+      frag.appendChild(el('span', 'sys-temp' + (st.tempC >= 75 ? ' high' : ''),
+        (st.tempC < 0 ? '−' + (-st.tempC) : st.tempC) + ' °C'));
+    }
     frag.appendChild(el('span', 'sys-gap'));
     frag.appendChild(el('span', null, 'RAM'));
     if (st.memTotalKb > 0) {
       frag.appendChild(meter(Math.round(st.memUsedKb / st.memTotalKb * 100)));
-      frag.appendChild(el('span', null, gb(st.memUsedKb) + ' / ' + gb(st.memTotalKb) + ' GB'));
+      frag.appendChild(el('span', null, gb(st.memUsedKb) + ' / ' + gb(st.memTotalKb) + ' GB'));
     } else frag.appendChild(el('span', null, '–'));
     box.replaceChildren(frag);
   }
