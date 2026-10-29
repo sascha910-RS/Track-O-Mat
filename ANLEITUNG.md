@@ -307,7 +307,7 @@ nicht auslösen.
 
 | Tasten | Wirkung |
 |---|---|
-| `Ctrl+Alt+Shift+Q` | Wartung: zuerst den automatischen Neustart stoppen, dann Chromium beenden; der Desktop ist danach zugänglich |
+| `Ctrl+Alt+Shift+Q` | Wartung: zuerst den automatischen Neustart stoppen, dann Chromium beenden; danach öffnet sich ein Terminal mit den wichtigsten Befehlen |
 | `Ctrl+Alt+Shift+K` | Kiosk wieder starten (oder im Terminal: `~/track-o-mat/kiosk.sh start`) |
 
 Den automatischen Neustart übernimmt die Schleife in `kiosk.sh run`; einen separaten
@@ -460,7 +460,8 @@ Nach dem Booten erscheint Track-O-Mat im Vollbild und im Hochformat. Prüfen:
 | Seite neu laden | `F5` |
 | Chromium neu starten | `Alt+F4` (startet automatisch neu) |
 | Kiosk beenden und Neustart-Schleife stoppen | `Ctrl+Alt+Shift+Q` |
-| Terminal öffnen (nach dem Stoppen) | `Ctrl+Alt+T` |
+| Terminal öffnen (öffnet sich nach dem Stoppen von selbst) | `Ctrl+Alt+T` |
+| Update holen und neu starten | `git -C ~/track-o-mat pull && sudo reboot` |
 | Kiosk wieder aktivieren | `Ctrl+Alt+Shift+K` oder `sudo reboot` |
 | Zustand abfragen | `~/track-o-mat/kiosk.sh status` |
 | Protokoll ansehen | `~/track-o-mat/kiosk.sh log` (mehr Zeilen: `kiosk.sh log 200`) |
@@ -474,8 +475,12 @@ Falls die Tastenkürzel nicht greifen, geht es immer über die Textkonsole:
 Dasselbe funktioniert per SSH. Der Wartungsmodus gilt bis zum nächsten Neustart des Pi;
 danach läuft der Kiosk wieder von selbst.
 
-Hast du Taskleiste und Desktop in Schritt 6 abgeschaltet, bleibt nach `Ctrl+Alt+Shift+Q` ein
-leerer Bildschirm. `Ctrl+Alt+T` öffnet dann ein Terminal.
+Nach `Ctrl+Alt+Shift+Q` öffnet `kiosk.sh` ein Terminal (`lxterminal`, Einstellung
+`MAINT_TERMINAL` am Anfang von `kiosk.sh`, `""` = keines) und zeigt darin die wichtigsten
+Befehle und die installierte Version, dieselbe Übersicht wie `~/track-o-mat/kiosk.sh help`.
+Per SSH öffnet `kiosk.sh stop` kein Terminal. Hast du Taskleiste und Desktop in Schritt 6
+abgeschaltet, ist hinter dem Terminal nur ein schwarzer Bildschirm; schliesst du es,
+öffnet `Ctrl+Alt+T` ein neues.
 
 ### Protokoll
 

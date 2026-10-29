@@ -8,6 +8,7 @@
 #   kiosk.sh places  Restaurantliste jetzt von OpenStreetMap holen (places.js)
 #   kiosk.sh menu    Tagesmenü jetzt holen (menu.js)
 #   kiosk.sh log     Protokoll zeigen (letzte 40 Zeilen; "kiosk.sh log 200" für mehr)
+#   kiosk.sh help    die wichtigsten Befehle für die Wartung zeigen (Update, Neustart …)
 
 APP_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 PROFILE="$HOME/.config/track-o-mat-chromium"       # eigenes Profil, getrennt vom normalen Browser
@@ -22,6 +23,11 @@ RESTART_DELAY=2
 # Arbeitsspeicher. Nach einem Neustart des Pi ist er leer und wird neu angelegt.
 SESSION_DIR="$PROFILE/Default/Sessions"
 SESSION_RAM="$RUN_DIR/track-o-mat-sessions"
+
+# Wartung: Wird der Kiosk am Bildschirm beendet (Ctrl+Alt+Shift+Q), öffnet sich ein Terminal
+# mit den wichtigsten Befehlen (kiosk.sh help), etwa für ein Update. Per SSH nicht.
+MAINT_TERMINAL="lxterminal"                        # Terminal-Programm ("" = keines öffnen)
+MAINT_RC="$RUN_DIR/track-o-mat-wartung.rc"         # Startdatei der Shell im Terminal
 
 # Ressourcen-Monitor im Info-Fenster: misst CPU-Auslastung und belegten Arbeitsspeicher und
 # legt sie als kleine Script-Datei ab, die die Seite liest (sie darf /proc nicht selbst lesen).
@@ -467,6 +473,36 @@ loop_running() {
   [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
 }
 
+# Die wichtigsten Befehle für die Wartung (kiosk.sh help, erscheint auch im Wartungs-Terminal)
+show_help() {
+  local version
+  version="$(git -C "$APP_DIR" log -1 --date=format:'%d.%m.%Y %H:%M' --format='%h vom %cd: %s' 2>/dev/null)"
+  cat <<EOF
+
+  Track-O-Mat – Wartung
+
+  Update holen und neu starten:  git -C ~/track-o-mat pull && sudo reboot
+  Kiosk wieder starten:          Ctrl+Alt+Shift+K   oder   ~/track-o-mat/kiosk.sh start
+  Pi neu starten:                sudo reboot
+  Zustand und Protokoll:         ~/track-o-mat/kiosk.sh status   und   ~/track-o-mat/kiosk.sh log
+
+  Installiert: ${version:-unbekannt}
+
+EOF
+}
+
+# Nach "stop" am Bildschirm ein Terminal mit show_help öffnen, höchstens eines. Ohne grafische
+# Sitzung (etwa per SSH) oder ohne das Terminal-Programm passiert nichts.
+open_maint_terminal() {
+  [ -n "$MAINT_TERMINAL" ] || return 0
+  [ -n "$WAYLAND_DISPLAY" ] || [ -n "$DISPLAY" ] || return 0
+  command -v "$MAINT_TERMINAL" >/dev/null 2>&1 || return 0
+  pgrep -f -- "--rcfile $MAINT_RC" >/dev/null 2>&1 && return 0
+  printf '[ -f ~/.bashrc ] && . ~/.bashrc\n"%s" help\n' "$APP_DIR/kiosk.sh" > "$MAINT_RC" 2>/dev/null || return 0
+  setsid -f "$MAINT_TERMINAL" --working-directory="$HOME" --title="Track-O-Mat Wartung" \
+    --command="bash --rcfile $MAINT_RC" >/dev/null 2>&1 < /dev/null
+}
+
 # Legt Default/Sessions als Verweis in den Arbeitsspeicher an (siehe SESSION_RAM). Klappt das
 # nicht, startet Chromium trotzdem und schreibt die Sitzung wie bisher auf die Karte.
 sessions_to_ram() {
@@ -592,6 +628,7 @@ case "${1:-run}" in
     log "Wartung: Kiosk gestoppt"
     pkill -f -- "--user-data-dir=$PROFILE"
     echo "Kiosk gestoppt (Wartungsmodus). Wieder aktivieren: Ctrl+Alt+Shift+K oder Neustart."
+    open_maint_terminal
     ;;
   start)
     rm -f "$STOP_FLAG"
@@ -626,8 +663,11 @@ case "${1:-run}" in
     if [ -f "$LOG_FILE" ]; then tail -n "${2:-40}" "$LOG_FILE"; else echo "Noch kein Protokoll: $LOG_FILE"; fi
     echo "Fehlerausgabe von Chromium: $BROWSER_LOG (letzter Lauf: $BROWSER_LOG.1)"
     ;;
+  help)
+    show_help
+    ;;
   *)
-    echo "Aufruf: $0 {run|stop|start|status|places|menu|log}" >&2
+    echo "Aufruf: $0 {run|stop|start|status|places|menu|log|help}" >&2
     exit 2
     ;;
 esac
