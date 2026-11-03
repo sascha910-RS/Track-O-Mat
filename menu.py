@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-# Track-O-Mat – Tagesmenüs aus PDFs lesen
+# Track-O-Mat – Tagesmenüs aus PDFs und dem food2050-Menüplan lesen
 #
-#   python3 menu.py menu.js "Pizza Züri=Tagesmenu.pdf" "Migros Restaurant=kw43.pdf" …
+#   python3 menu.py menu.js "Pizza Züri=Tagesmenu.pdf" "Migros Restaurant=kw43.pdf" "UBS Key West=menu.html" …
 #
 # Liest aus den PDFs der Lokale die Menüs pro Tag und schreibt sie zusammen als menu.js,
 # das die Seite als Script lädt. kiosk.sh ruft das nach jedem neuen PDF auf. Braucht nur
 # die Standardbibliothek, weil auf dem Pi kein PDF-Werkzeug vorausgesetzt werden kann.
+# Ist eine Datei kein PDF, wird sie als Menüplan von app.food2050.ch gelesen (siehe
+# read_food2050 weiter unten).
 #
 # Der Text wird nach seiner Position auf der Seite geordnet, nicht nach der Reihenfolge in
 # der Datei: Die ist je nach Programm, mit dem das PDF entstand, durcheinander (im PDF von
@@ -688,6 +690,128 @@ def read_pdf(path, today):
     return days
 
 
+# --- Menüplan von food2050 (Webseite statt PDF) -----------------------------------------------
+# app.food2050.ch zeigt den Wochenplan als Webseite (Next.js); zfv.ch bettet sie ein. Die Gerichte
+# stehen im eingebetteten Datenteil der Seite (self.__next_f.push([1, "…"])): pro Tag ein Datum
+# und die Gerichte mit Linie ("Urban", "Traditional" …), Name, Beschreibung und den Angaben
+# vegan/vegetarisch, aber ohne Preis. Kommt ein Objekt mehrmals vor, steht ab dem zweiten Mal
+# nur ein Verweis wie "$14:props:outlet:menuCategory:…:category" auf die erste Stelle.
+
+MAX_HTML = 3 * 1024 * 1024
+NEXT_PUSH = re.compile(r'self\.__next_f\.push\((\[.*?\])\)</script>', re.S)
+NEXT_REF = re.compile(r'^\$([0-9a-f]+)((?::[^:]+)*)$')
+
+
+class NextData:
+    """Der Datenteil einer Next.js-Seite; resolve() löst Verweise auf."""
+
+    def __init__(self, html):
+        parts = []
+        for chunk in NEXT_PUSH.findall(html):
+            try:
+                value = json.loads(chunk)
+            except ValueError:
+                continue
+            if isinstance(value, list) and len(value) > 1 and isinstance(value[1], str):
+                parts.append(value[1])
+        self.payload = ''.join(parts)
+        self.decoder = json.JSONDecoder()
+        self.rows = {}
+
+    def value_at(self, pos):
+        return self.decoder.raw_decode(self.payload, pos)[0]
+
+    def row(self, rid):
+        """Zeile "<rid>:{…}" bzw. "<rid>:[…]" des Datenteils."""
+        if rid not in self.rows:
+            m = re.search(r'(?:^|\n)%s:(?=[\[{])' % re.escape(rid), self.payload)
+            try:
+                self.rows[rid] = self.value_at(m.end()) if m else None
+            except ValueError:
+                self.rows[rid] = None
+        return self.rows[rid]
+
+    def resolve(self, value, depth=0):
+        """Ersetzt einen Verweis "$<Zeile>:<Pfad>" durch den Wert, auf den er zeigt."""
+        while isinstance(value, str) and depth < 20:
+            m = NEXT_REF.match(value)
+            if not m:
+                return value
+            node = self.row(m.group(1))
+            for key in m.group(2).split(':')[1:]:
+                node = self.resolve(node, depth + 1)
+                if isinstance(node, list) and len(node) == 4 and node[0] == '$' and key == 'props':
+                    node = node[3]                 # React-Element ["$", Typ, Schlüssel, props]
+                elif isinstance(node, list) and key.isdigit() and int(key) < len(node):
+                    node = node[int(key)]
+                elif isinstance(node, dict) and key in node:
+                    node = node[key]
+                else:
+                    return None
+            value, depth = node, depth + 1
+        return value
+
+
+def plain(value, size=160):
+    """Text aus den Daten, Leerraum zusammengefasst und gekürzt; alles andere ergibt ''."""
+    return clip(re.sub(r'\s+', ' ', value).strip(), size) if isinstance(value, str) else ''
+
+
+def read_food2050(path, today):
+    """Alle Tage eines food2050-Menüplans: { "JJJJ-MM-TT": [Menüs] }."""
+    with open(path, 'rb') as f:
+        data = NextData(f.read(MAX_HTML).decode('utf-8', 'replace'))
+    pos = data.payload.find('"daily":[')
+    if pos < 0:
+        raise ValueError('kein Wochenplan in der Seite')
+    days = {}
+    week = data.value_at(pos + len('"daily":'))
+    for day in (week if isinstance(week, list) else [])[:14]:
+        day = data.resolve(day)
+        start = data.resolve(day.get('from')) if isinstance(day, dict) else None
+        m = re.match(r'(\d{4})-(\d{2})-(\d{2})', plain(start.get('dateLocal')) if isinstance(start, dict) else '')
+        if not m:
+            continue
+        try:
+            date = datetime.date(int(m[1]), int(m[2]), int(m[3]))
+        except ValueError:
+            continue
+        if abs((date - today).days) > 21:              # offensichtlich nicht der aktuelle Plan
+            continue
+        items = []
+        entries = data.resolve(day.get('menuItems'))
+        for entry in (entries if isinstance(entries, list) else [])[:12]:
+            entry = data.resolve(entry)
+            dish = data.resolve(entry.get('dish')) if isinstance(entry, dict) else None
+            if not isinstance(dish, dict):
+                continue
+            category = data.resolve(entry.get('category'))
+            name = plain(data.resolve(dish.get('name')))
+            desc = plain(data.resolve(dish.get('description')))
+            if not name:
+                continue
+            # "HOT MARKET, Sie finden leckere Speisen …": Name und Erklärung in einem Feld
+            if not desc and ', ' in name:
+                name, desc = (part.strip() for part in name.split(', ', 1))
+            item = {'label': plain(data.resolve(category.get('name')), 30) if isinstance(category, dict) else '',
+                    'name': name, 'desc': [desc] if desc else [], 'starter': '', 'price': ''}
+            if data.resolve(dish.get('isVegan')) is True:
+                item['desc'].append('vegan')
+            elif data.resolve(dish.get('isVegetarian')) is True:
+                item['desc'].append('vegetarisch')
+            items.append(item)
+        if items:
+            days[date.isoformat()] = items
+    return days
+
+
+def read_menu(path, today):
+    """PDF oder food2050-Menüplan, je nach Inhalt der Datei."""
+    with open(path, 'rb') as f:
+        head = f.read(8)
+    return read_pdf(path, today) if head.startswith(b'%PDF') else read_food2050(path, today)
+
+
 def main():
     if len(sys.argv) < 3:
         sys.exit('Aufruf: menu.py menu.js "Lokal=datei.pdf" …')
@@ -697,10 +821,10 @@ def main():
         place, _, path = arg.partition('=')
         days = places.setdefault(place, {})
         try:
-            for key, items in read_pdf(path, today).items():
+            for key, items in read_menu(path, today).items():
                 days.setdefault(key, items)
-        except Exception as err:                                # beliebiges PDF: jeder Fehler heisst "nicht lesbar"
-            notes[place] = 'PDF nicht lesbar (%s: %s)' % (type(err).__name__, str(err)[:80])
+        except Exception as err:                                # Datei aus dem Netz: jeder Fehler heisst "nicht lesbar"
+            notes[place] = 'Menü nicht lesbar (%s: %s)' % (type(err).__name__, str(err)[:80])
     summary = []
     for place, days in places.items():
         keys = sorted(days)

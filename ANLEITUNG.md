@@ -606,7 +606,7 @@ es genügt, wenn die Linie eine davon anfährt. `enabled: false` blendet den Kno
 ### Restaurants
 
 Der Knopf «Restaurants» öffnet eine Liste der Restaurants und
-Take-aways rund um den Bahnhof, mit Öffnungsstatus und Luftlinien-Distanz. Offene Lokale
+Take-aways rund um den Standort der Anzeige (UBS VZA1), mit Öffnungsstatus und Luftlinien-Distanz. Offene Lokale
 stehen zuerst; «Alle» zeigt auch die geschlossenen, mit «Zurück» und «Weiter» blättert
 man. Nach `idleResetSec` ohne Berührung springt die Anzeige zu den Zügen zurück.
 
@@ -623,9 +623,10 @@ Protokoll (`kiosk.sh log`). Von Hand geht es mit:
 ~/track-o-mat/kiosk.sh places
 ```
 
-Im Block `restaurants` des `CONFIG` stehen Bahnhofskoordinaten, Umkreis (`radius`, in
-Metern Luftlinie) und die Arten (`types`). Vier Einstellungen verwenden den exakten
-Namen aus OpenStreetMap:
+Im Block `restaurants` des `CONFIG` stehen die Koordinaten des Standorts (`lat`, `lon`: das
+VZA1, von dort misst die Liste alle Distanzen), der Umkreis (`radius`, 550 m Luftlinie)
+und die Arten (`types`). Vier Einstellungen verwenden den exakten Namen aus
+OpenStreetMap:
 
 - `include` zeigt ein Lokal immer, auch weit ausserhalb des Umkreises (bis 3 km).
   Gibt es den Namen mehrfach (Ketten), erscheint nur das nächstgelegene.
@@ -636,6 +637,14 @@ Namen aus OpenStreetMap:
   falsch sind, in derselben Schreibweise wie dort, z. B.
   `'Mo-Fr 11:00-14:00,17:00-23:00; Sa 17:00-23:00'`.
 
+Lokale, die in OpenStreetMap fehlen, stehen in `extra`, eines pro Zeile: `name`
+(Anzeigename, zugleich der Name für `menus`), `about` (steht unter dem Namen statt der
+Art), `hours` (wie oben) und `where` (Breite und Länge; die Liste rechnet daraus die
+Luftlinie wie bei den anderen) oder `dist` (feste Distanz in Metern). So ist das
+UBS-Personalrestaurant Key West an der Max-Högger-Strasse 82 erfasst, Mo–Fr 11:15–13:45,
+92 m vom VZA1. Diese Lokale erscheinen, sobald die Restaurantliste aus OpenStreetMap
+einmal geladen ist.
+
 Nach einer Änderung von Ort, Umkreis oder `include` `kiosk.sh places` ausführen.
 
 Der Öffnungsstatus ist so gut wie die Angaben in OpenStreetMap: Lokale ohne erfasste
@@ -644,21 +653,22 @@ berücksichtigt. Falsche Zeiten lassen sich auf openstreetmap.org korrigieren.
 
 ### Tagesmenüs
 
-Für Pizza Züri und das Migros Restaurant zeigt die Anzeige das Tagesmenü. Beide sind
-Mittagsmenüs: Bis 14:00 erscheint das Menü von heute, ab 14:00 das von morgen, sofern
-eines vorliegt. In der Restaurantliste steht dann neben dem Namen «Tagesmenü ›» bzw.
+Für Pizza Züri, das Migros Restaurant und UBS Key West zeigt die Anzeige das Tagesmenü.
+Alle sind Mittagsmenüs: Bis 14:00 (Key West: 13:45) erscheint das Menü von heute, danach
+das von morgen, sofern eines vorliegt. In der Restaurantliste steht dann neben dem Namen «Tagesmenü ›» bzw.
 «Menü morgen ›», und die Lokale stehen unter «Jetzt offen» ganz oben, auch wenn sie
 gerade geschlossen sind (z. B. «geschlossen, ab 11:30»). So kann man jederzeit nachsehen,
 was es gibt. Antippen öffnet ein Fenster mit den Menüs samt Beschreibung und Preis; beim
 Menü von morgen heisst es «Tagesmenü von morgen» und nennt das Datum. Gibt es kein
 passendes Menü (etwa am Freitagnachmittag, weil samstags keines gilt), ist das Lokal eine
-gewöhnliche Zeile, und Antippen bewirkt nichts. Ein offenes Menüfenster schliesst sich um
-14:00 und um Mitternacht von selbst.
+gewöhnliche Zeile, und Antippen bewirkt nichts. Ein offenes Menüfenster schliesst sich zu
+dieser Uhrzeit (14:00 bzw. 13:45) und um Mitternacht von selbst.
 
 | Lokal | Quelle | Was erscheint |
 |---|---|---|
 | Pizza Züri | PDF auf pizzazueri.ch, eine Seite pro Tag, meist Dienstag bis Freitag im Voraus | Menu 1, Menu 2, Vegimenu, Tagespizza; eine gemeinsame Vorspeise einmal am Schluss |
 | Migros Restaurant | Wochenpläne der Migros Zürich als PDF, verlinkt auf gastro.migros.ch (aktuelle Woche und Folgewoche) | Mittagsmenü und Grill-Combo mit Beilagen, Preis und Herkunft |
+| UBS Key West | Wochenplan der ZFV auf app.food2050.ch (auf zfv.ch eingebettet), eine Webseite statt eines PDFs, aktuelle Woche | Urban, Traditional, Global, Soul Food Veggie und Soul Food mit Beilagen und dem Hinweis «vegan» bzw. «vegetarisch»; ohne Preise, die Seite nennt keine |
 
 Der Menüplan der Migros gilt für alle ihre Restaurants in Zürich; nicht jedes bietet alle
 Menüs an, das steht auch klein unter dem Menü. Das vegetarische Buffet, die «Klassiker»
@@ -682,7 +692,8 @@ Hand geht es mit:
 Eingestellt ist das im Block `restaurants` des `CONFIG` unter `menus`, ein Lokal pro
 Zeile und die Angaben in dieser Reihenfolge: `place` (exakter Name aus OpenStreetMap),
 `url` (das PDF oder, zusammen mit `pdf`, eine Webseite, auf der die PDFs verlinkt sind,
-deren Name `pdf` enthält), `until` (ab dieser Uhrzeit erscheint das Menü von morgen, `''`
+deren Name `pdf` enthält; oder ein Menüplan von `app.food2050.ch`, den `menu.py` aus den
+Daten der Webseite liest), `until` (ab dieser Uhrzeit erscheint das Menü von morgen, `''`
 = immer das von heute) und `note` (kleiner Hinweis unter dem Menü). `menus: []` schaltet
 die Tagesmenüs ab. Damit Pizza Züri über Mittag als offen gilt, stehen seine
 Öffnungszeiten (warme Küche laut pizzazueri.ch) in `hours`, weil sie in OpenStreetMap

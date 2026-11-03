@@ -179,7 +179,9 @@ update_places() {
 # Menüs heraus und legt sie zusammen als menu.js neben die Seite. Ist die Adresse eine
 # Webseite, holt es die dort verlinkten PDFs, deren Name das Muster pdf enthält (bei Migros
 # die aktuelle Woche und die Folgewoche), und zwar nur einmal pro Tag: Wochenpläne ändern
-# sich selten. Die PDFs enthalten meist mehrere Tage im Voraus.
+# sich selten. Die PDFs enthalten meist mehrere Tage im Voraus. Ein Menüplan von
+# app.food2050.ch (etwa UBS Key West, eingebettet auf zfv.ch) ist eine Webseite statt eines
+# PDFs: kiosk.sh legt ihn als menu.html ab, menu.py erkennt ihn am Inhalt.
 MENU_FILE="$APP_DIR/menu.js"
 MENU_INTERVAL=3600                                 # Sekunden zwischen zwei Nachfragen (0 = aus)
 MENU_DIR="$RUN_DIR/track-o-mat-menu"               # zuletzt geladene PDFs, ein Ordner je Adresse
@@ -192,11 +194,12 @@ menu_sources() {
 
 # Lädt $1 nach $2, wenn die Datei fehlt oder auf dem Server neuer ist: -R übernimmt die
 # Änderungszeit vom Server, -z fragt mit ihr nach (ist nichts neu, kommt 304 ohne Daten).
+# Weiterleitungen werden befolgt (food2050 leitet auf die eigentliche Adresse um).
 # Rückgabe: 0 = neu geladen, 1 = nicht erreichbar (Grund in MENU_ERRORS), 2 = unverändert
 menu_fetch() {
   local code since=()
   if [ -f "$2" ]; then since=(-z "$2"); fi
-  if ! code="$(curl -sS -f -m 30 --max-filesize 5000000 -R -A "$PLACES_AGENT" "${since[@]}" \
+  if ! code="$(curl -sS -f -L --max-redirs 5 -m 30 --max-filesize 5000000 -R -A "$PLACES_AGENT" "${since[@]}" \
                  -w '%{http_code}' -o "$2.tmp" "$1" 2>"$2.err")"; then
     MENU_ERRORS="$MENU_ERRORS; $1 nicht erreichbar ($(first_line "$2.err"))"
     rm -f "$2.tmp" "$2.err"
@@ -205,7 +208,9 @@ menu_fetch() {
   rm -f "$2.err"
   if [ "$code" = 200 ] && [ -f "$2.tmp" ]; then mv -f "$2.tmp" "$2"; return 0; fi
   rm -f "$2.tmp"
-  return 2
+  if [ "$code" = 304 ]; then return 2; fi
+  MENU_ERRORS="$MENU_ERRORS; $1 lieferte HTTP $code"
+  return 1
 }
 
 # PDF-Links der Webseite in Datei $1, deren Name $3 enthält, als volle Adressen
@@ -231,7 +236,9 @@ update_menu() {
     dir="$MENU_DIR/$(printf '%s' "$url" | cksum | cut -d ' ' -f 1)"
     mkdir -p "$dir" || continue
     if [ -z "$pattern" ]; then
-      menu_fetch "$url" "$dir/menu.pdf"
+      file="$dir/menu.pdf"
+      case "$url" in https://app.food2050.ch/*) file="$dir/menu.html" ;; esac   # Menüplan als Webseite
+      menu_fetch "$url" "$file"
       case $? in 0) fresh=1 ;; 1) rc=1 ;; esac
     elif [ "$1" != force ] && [ -f "$dir/stand" ] && [ "$(date -r "$dir/stand" +%F)" = "$(date +%F)" ]; then
       :   # Webseite und Wochenpläne heute schon vollständig geholt
@@ -254,7 +261,7 @@ update_menu() {
       rc=1
       if [ -f "$dir/seite.html" ] && [ -z "$links" ]; then MENU_ERRORS="$MENU_ERRORS; auf $url keine PDF-Links mit «$pattern»"; fi
     fi
-    for file in "$dir"/*.pdf; do
+    for file in "$dir"/*.pdf "$dir/menu.html"; do
       if [ -f "$file" ]; then args+=("$place=$file"); fi
     done
   done < <(menu_sources)

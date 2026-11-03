@@ -1037,7 +1037,7 @@
                                                   // der Wächter in kiosk.sh eine abgestürzte oder hängende Seite
     clockSweepSec: 58.5,                          // Bahnhofsuhr: Umlauf des Sekundenzeigers; den Rest der
                                                   // Minute wartet er oben, bis der Minutenzeiger springt
-    // Ansicht "Restaurants": Lokale im Umkreis des Bahnhofs aus OpenStreetMap.
+    // Ansicht "Restaurants": Lokale im Umkreis der Anzeige aus OpenStreetMap.
     // Die Daten holt kiosk.sh einmal pro Tag und legt sie als places.js neben diese Datei
     // (der OSM-Dienst nimmt Anfragen direkt aus einer lokalen Seite nicht an). kiosk.sh
     // liest lat, lon, radius, refreshAt und include aus diesem Block – Schreibweise beibehalten
@@ -1045,8 +1045,9 @@
     // Namen aus OpenStreetMap.
     restaurants: {
       enabled: true,                              // false = Knopf ausblenden
-      lat: 47.3913167, lon: 8.4893332,            // Bahnhof Zürich Altstetten
-      radius: 440,                                // Meter Luftlinie; reicht bis Cafe Bar Memo am Lindenplatz
+      lat: 47.3925254, lon: 8.4888602,            // Standort der Anzeige: UBS VZA1, Max-Högger-Strasse 81
+      radius: 550,                                // Meter Luftlinie ab dort; deckt etwa dieselben Lokale ab wie
+                                                  // vorher 440 m ab der Mitte des Bahnhofs
       refreshAt: '07:00',                         // kiosk.sh lädt die Liste einmal pro Tag ab dieser Zeit
       types: ['restaurant', 'fast_food'],         // OSM "amenity": Restaurants und Take-aways
       include: ['Cafe Bar Memo', 'Pizza Züri', 'Migros Restaurant'],   // immer zeigen, auch ausserhalb des Umkreises (bis 3 km);
@@ -1057,15 +1058,23 @@
                                                   // sind (Schreibweise wie in OSM)
         'Pizza Züri': 'Tu-We 11:30-14:00,18:00-22:00; Th-Fr 11:30-14:00,18:00-22:30; Sa 18:00-22:30'
       },                                          // ↑ warme Küche laut pizzazueri.ch (Stand Oktober 2026)
+      // Lokale, die in OpenStreetMap fehlen, von Hand: name (auch für menus), about (steht unter
+      // dem Namen statt der Art), hours (Schreibweise wie in OSM) und where: [Breite, Länge]
+      // für die Luftlinie wie bei den anderen (oder dist: feste Distanz in Metern). Ein Lokal pro Zeile.
+      extra: [
+        { name: 'UBS Key West', about: 'Personalrestaurant', hours: 'Mo-Fr 11:15-13:45', where: [47.3926811, 8.4876633] }   // Max-Högger-Strasse 82
+      ],
       // Tagesmenüs: Antippen eines dieser Lokale zeigt seine Menüs. kiosk.sh holt das PDF unter url
-      // (mit pdf: die auf der Webseite url verlinkten PDFs, deren Name pdf enthält), liest die
-      // Menüs heraus und legt sie als menu.js ab. Ein Lokal pro Zeile, die Angaben in dieser
+      // (mit pdf: die auf der Webseite url verlinkten PDFs, deren Name pdf enthält; ein Menüplan
+      // von app.food2050.ch geht auch), liest die Menüs heraus und legt sie als menu.js ab. Ein
+      // Lokal pro Zeile, die Angaben in dieser
       // Reihenfolge (kiosk.sh liest sie). Antippbar ist ein Lokal nur, wenn ein passendes Menü
       // vorliegt: bis until das von heute (Mittagsmenü), ab until das von morgen ('' = immer das
       // von heute). note steht klein unter dem Menü.
       menus: [
         { place: 'Pizza Züri', url: 'https://pizzazueri.ch/wp-content/uploads/Tagesmenu.pdf', until: '14:00' },
-        { place: 'Migros Restaurant', url: 'https://gastro.migros.ch/genossenschaft-migros-zuerich/migros-restaurant', pdf: 'online-menueplan', until: '14:00', note: 'Menüplan der Migros Zürich, nicht jedes Restaurant bietet alle Menüs an.' }
+        { place: 'Migros Restaurant', url: 'https://gastro.migros.ch/genossenschaft-migros-zuerich/migros-restaurant', pdf: 'online-menueplan', until: '14:00', note: 'Menüplan der Migros Zürich, nicht jedes Restaurant bietet alle Menüs an.' },
+        { place: 'UBS Key West', url: 'https://app.food2050.ch/de/key-west/ubs-key-west/menu/mittagsmenu/weekly', until: '13:45', note: 'Menüplan der ZFV (zfv.ch), Änderungen an der Speiseausgabe vorbehalten.' }
       ]
     },
     // Aussentemperatur oben rechts: Messwert einer Station von MeteoSchweiz (offene Daten,
@@ -2122,6 +2131,7 @@
   }
 
   function kindText(pl) {
+    if (pl.about) return pl.about;                 // von Hand erfasst (CONFIG.restaurants.extra)
     var out = [pl.kind === 'fast_food' ? 'Take-away' : 'Restaurant'];
     var list = pl.cuisine ? pl.cuisine.split(';') : [];
     for (var i = 0; i < list.length && i < 2; i++) {
@@ -2181,6 +2191,13 @@
             if (seen[pl.osmName]) return false;
             seen[pl.osmName] = true;
             return true;
+          });
+          // Von Hand erfasste Lokale (extra) dazu: Luftlinie aus where, sonst die feste Distanz dist
+          (R.extra || []).forEach(function (x) {
+            if (!x || !x.name) return;
+            var at = Array.isArray(x.where) && x.where.length === 2 ? x.where : null;
+            list.push({ name: x.name, osmName: x.name, kind: 'restaurant', about: x.about || '', cuisine: '',
+                        hours: x.hours || '', dist: at ? distance(R.lat, R.lon, +at[0], +at[1]) : (+x.dist || 0) });
           });
           placesAt = raw.at;
           usePlaces(list);
