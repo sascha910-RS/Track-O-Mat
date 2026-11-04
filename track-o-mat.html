@@ -158,9 +158,17 @@
   #app:not(.food) .only-food, #app:not(.local) .only-local,
   #app.food .only-trains, #app.local .only-trains, #app.food .only-deps { display: none !important; }
 
-  .row.food, #thead-food { grid-template-columns: 148px 1fr 84px; }
+  .row.food, #thead-food { grid-template-columns: 148px 1fr 116px; }
   .c-dist { text-align: right; font-size: 22px; color: var(--muted); white-space: nowrap; }
   #thead-food .c-dist { font-size: 14px; }
+  /* Distanz als Knopf: Antippen zeigt den Weg ab dem Standort (Google Maps) */
+  .c-dist.route {
+    justify-self: end; display: inline-flex; align-items: center; gap: 5px;
+    height: 40px; padding: 0 12px 0 9px; border-radius: 20px;
+    color: var(--text); background: var(--tile2);
+  }
+  .c-dist.route svg { width: 18px; height: 18px; flex: none; }
+  .c-dist.route.pressed { background: var(--tile2-pressed); }
   .f-state { font-size: 22px; font-weight: 700; line-height: 25px; color: var(--muted); }
   .f-state.open { color: var(--ok); }
   .f-state.closed { color: var(--accent); }
@@ -370,6 +378,28 @@
     flex-direction: column;
   }
   #overlay.open { display: flex; }
+
+  /* ---------- Weg zu einem Lokal (Google Maps), als Fenster über der Liste ---------- */
+  #route { display: none; position: absolute; left: 0; top: 0; width: 768px; height: var(--app-h); z-index: 10; }
+  #route.open { display: block; }
+  #route-shade { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.55); }
+  #route-box {
+    position: absolute; left: 24px; right: 24px; top: 64px; bottom: 64px;
+    display: flex; flex-direction: column;
+    background: var(--surface); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+  #route-head { flex: 0 0 84px; display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
+  #route-text { flex: 1 1 auto; min-width: 0; padding: 13px 20px 0; }
+  #route-title { font-size: 26px; line-height: 32px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #route-sub { font-size: 16px; line-height: 22px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #route-close {
+    flex: 0 0 200px; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: #FFFFFF; background: var(--tile);
+  }
+  #route-close.pressed { background: var(--tile-pressed); }
+  #route-map { flex: 1 1 auto; position: relative; background: var(--surface-alt); }
+  #route-map iframe { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; }
+  .route-wait { position: absolute; left: 0; right: 0; top: 45%; text-align: center; font-size: 22px; color: var(--muted); }
   #overlay-head {
     flex: 0 0 96px;
     display: flex;
@@ -430,6 +460,7 @@
     clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
   }
   .legend .sample-in { font-size: 21px; color: var(--muted); }
+  .legend .c-dist.route { font-size: 21px; }
   .note {
     padding-top: 16px;
     font-size: 17px;
@@ -832,6 +863,28 @@
   html.comic .m-name { font: 18px/26px var(--f-fat); }
   html.comic .m-desc { color: var(--c-text); opacity: 0.8; }
   html.comic .m-price { font: 27px/30px var(--f-comic); letter-spacing: 1px; }
+
+  /* ---------- Weg zu einem Lokal ---------- */
+  html.comic .c-gleis.route {
+    display: inline-flex; align-items: center; gap: 4px; padding: 0 9px 0 6px;
+    background: var(--c-mint); border: 3px solid var(--c-line); border-radius: 10px;
+    box-shadow: 3px 3px 0 var(--c-line); line-height: 32px;
+  }
+  html.comic .c-gleis.route svg { width: 20px; height: 20px; stroke-width: 2.6; transform: skewX(6deg); }
+  html.comic .c-gleis.route.pressed { background: var(--c-paper); }
+  html.comic .legend .c-dist.route {
+    color: var(--c-line); background: var(--c-mint); border: 3px solid var(--c-line); border-radius: 10px;
+    font: 26px/30px var(--f-comic); letter-spacing: 1px; height: 38px;
+  }
+  html.comic #route-box {
+    background: var(--c-paper); border: 4px solid var(--c-line); border-radius: 16px;
+    box-shadow: 8px 8px 0 var(--c-line); overflow: hidden;
+  }
+  html.comic #route-head { border-bottom: 4px solid var(--c-line); }
+  html.comic #route-title { font: 36px/40px var(--f-comic); letter-spacing: 1px; text-transform: uppercase; color: var(--c-red); }
+  html.comic #route-sub { color: var(--c-text); opacity: 0.75; }
+  html.comic #route-close { font: 26px/30px var(--f-comic); letter-spacing: 1px; text-transform: uppercase; color: var(--c-cream); background: var(--c-line); }
+  html.comic #route-close.pressed { color: var(--c-line); background: var(--c-mint); }
 </style>
 <!-- Schriften des Comic-Looks, in die Datei eingebettet, damit der Kiosk nichts aus dem Netz
      lädt. Beide stehen unter der SIL Open Font License 1.1 (https://openfontlicense.org):
@@ -948,6 +1001,7 @@
       <div class="legend"><div><span class="sample-in">in 5 min</span></div><div>Zeit bis zur tatsächlichen Abfahrt (inkl. Verspätung)</div></div>
       <div class="legend"><div><span class="platform changed">4</span></div><div>Gleis- oder Kantenänderung – die Abfahrt ist hier</div></div>
       <div class="legend"><div><span class="sample-tile">Filter</span></div><div>Rote Kachel = aktiver Filter</div></div>
+      <div class="legend only-places only-route"><div><span class="c-dist route" id="legend-route"></span></div><div id="legend-route-text"></div></div>
       <div class="legend"><div><span class="sample-alert"></span></div><div>Keine Verbindung – es werden die zuletzt geladenen Daten gezeigt</div></div>
       <div class="note" id="help-note"></div>
     </div>
@@ -986,6 +1040,18 @@
         <svg class="icon" viewBox="0 0 44 44"><path d="M8 11h28L25 24v10l-6 3V24z"/></svg>
         Filter zurücksetzen
       </div>
+    </div>
+  </div>
+
+  <!-- Weg zu einem Lokal: Fenster mit der Karte von Google Maps (zu Fuss ab dem Standort) -->
+  <div id="route">
+    <div id="route-shade" data-action="route-close"></div>
+    <div id="route-box">
+      <div id="route-head">
+        <div id="route-text"><div id="route-title"></div><div id="route-sub"></div></div>
+        <div id="route-close" data-action="route-close">Schliessen&nbsp;&nbsp;×</div>
+      </div>
+      <div id="route-map"></div>
     </div>
   </div>
 
@@ -1048,6 +1114,11 @@
       lat: 47.3925254, lon: 8.4888602,            // Standort der Anzeige: UBS VZA1, Max-Högger-Strasse 81
       radius: 550,                                // Meter Luftlinie ab dort; deckt etwa dieselben Lokale ab wie
                                                   // vorher 440 m ab der Mitte des Bahnhofs
+      origin: 'VZA1',                             // Name des Standorts, steht im Wegfenster
+      route: true,                                // Distanz antippen zeigt den Weg zu Fuss ab dem Standort
+                                                  // (Google Maps, eingebettet; false = Distanz nur als Text)
+      routeFrom: [47.3924191, 8.488475],          // Start des Wegs: Ausgang des VZA1 an der Vulkanstrasse
+                                                  // (Mitte der Westseite; ohne Angabe gilt lat/lon)
       refreshAt: '07:00',                         // kiosk.sh lädt die Liste einmal pro Tag ab dieser Zeit
       types: ['restaurant', 'fast_food'],         // OSM "amenity": Restaurants und Take-aways
       include: ['Cafe Bar Memo', 'Pizza Züri', 'Migros Restaurant'],   // immer zeigen, auch ausserhalb des Umkreises (bis 3 km);
@@ -1059,10 +1130,11 @@
         'Pizza Züri': 'Tu-We 11:30-14:00,18:00-22:00; Th-Fr 11:30-14:00,18:00-22:30; Sa 18:00-22:30'
       },                                          // ↑ warme Küche laut pizzazueri.ch (Stand Oktober 2026)
       // Lokale, die in OpenStreetMap fehlen, von Hand: name (auch für menus), about (steht unter
-      // dem Namen statt der Art), hours (Schreibweise wie in OSM) und where: [Breite, Länge]
-      // für die Luftlinie wie bei den anderen (oder dist: feste Distanz in Metern). Ein Lokal pro Zeile.
+      // dem Namen statt der Art), hours (Schreibweise wie in OSM), where: [Breite, Länge] für die
+      // Luftlinie wie bei den anderen (oder dist: feste Distanz in Metern) und routeTo (Ziel für den
+      // Weg in Google Maps, Name und Adresse). Ein Lokal pro Zeile.
       extra: [
-        { name: 'UBS Key West', about: 'Personalrestaurant', hours: 'Mo-Fr 11:15-13:45', where: [47.3926811, 8.4876633] }   // Max-Högger-Strasse 82
+        { name: 'UBS Key West', about: 'Personalrestaurant', hours: 'Mo-Fr 11:15-13:45', where: [47.3926811, 8.4876633], routeTo: 'UBS Restaurant Key West, Max-Högger-Strasse 82, 8048 Zürich' }
       ],
       // Tagesmenüs: Antippen eines dieser Lokale zeigt seine Menüs. kiosk.sh holt das PDF unter url
       // (mit pdf: die auf der Webseite url verlinkten PDFs, deren Name pdf enthält; ein Menüplan
@@ -1254,6 +1326,7 @@
   var shownKey = '';
   var pressedEl = null;
   var overlayMode = '';      // '', 'help', 'info' oder 'menu'
+  var routeOpen = false;     // Fenster mit dem Weg zu einem Lokal offen
   var lastClock = '';
   var clockMinute = '';      // Minute (HH:MM), die die Bahnhofsuhr gerade zeigt
   var clockTimer = 0;
@@ -1770,6 +1843,7 @@
     if (on) {
       // Alte Abfahrten verwerfen, damit beim Aufwachen nichts Veraltetes erscheint
       for (var n in boards) { boards[n].entries = []; boards[n].hasData = false; }
+      closeRoute();
       closeOverlay();
       restWake = nextWake(now);
       updateRest(now);
@@ -2180,7 +2254,8 @@
               if (t.access === 'private' || t.access === 'no') continue;
             }
             list.push({ name: R.rename[t.name] || t.name, osmName: t.name, kind: t.amenity, cuisine: t.cuisine || '',
-                        hours: R.hours[t.name] || t.opening_hours || '', dist: dist });
+                        hours: R.hours[t.name] || t.opening_hours || '', dist: dist, lat: c.lat, lon: c.lon,
+                        routeTo: routeAddress(t) });
           }
           list.sort(function (a, b) { return a.dist - b.dist; });
           // Von fest aufgenommenen Namen (include) nur das nächstgelegene Lokal behalten:
@@ -2197,7 +2272,8 @@
             if (!x || !x.name) return;
             var at = Array.isArray(x.where) && x.where.length === 2 ? x.where : null;
             list.push({ name: x.name, osmName: x.name, kind: 'restaurant', about: x.about || '', cuisine: '',
-                        hours: x.hours || '', dist: at ? distance(R.lat, R.lon, +at[0], +at[1]) : (+x.dist || 0) });
+                        hours: x.hours || '', dist: at ? distance(R.lat, R.lon, +at[0], +at[1]) : (+x.dist || 0),
+                        lat: at ? +at[0] : null, lon: at ? +at[1] : null, routeTo: x.routeTo || '' });
           });
           placesAt = raw.at;
           usePlaces(list);
@@ -2262,7 +2338,7 @@
       } else cPlace.appendChild(el('div', 'f-name', it.place.name));
       cPlace.appendChild(el('div', 'f-kind', kindText(it.place)));
       row.appendChild(cPlace);
-      row.appendChild(el('div', 'c-dist', it.place.dist + ' m'));
+      row.appendChild(distCell('c-dist', it.place));
       frag.appendChild(row);
     }
     elRows.replaceChildren(frag);
@@ -2297,9 +2373,81 @@
     go.appendChild(el('span', 'd-time shrink', (it.st.when ? it.st.when + ' · ' : '') + kind));
     go.appendChild(el('span', 'd-dots'));
     panel.appendChild(go);
-    panel.appendChild(el('div', 'c-gleis', it.place.dist + ' m'));
+    panel.appendChild(distCell('c-gleis', it.place));
     row.appendChild(panel);
     return row;
+  }
+
+  /* ---------- Weg zu einem Lokal (Google Maps) ---------- */
+  // Stecknadel vor der Distanz: zeigt, dass man sie antippen kann
+  var PIN_SVG = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z"/>' +
+                '<circle cx="12" cy="9.8" r="2.4"/></svg>';
+
+  // Distanz eines Lokals; mit Koordinaten (und CONFIG.restaurants.route) ein Knopf zum Weg
+  function distCell(cls, pl) {
+    var cell = el('div', cls);
+    if (!CONFIG.restaurants.route || typeof pl.lat !== 'number' || typeof pl.lon !== 'number') {
+      cell.textContent = pl.dist + ' m';
+      return cell;
+    }
+    cell.classList.add('route');
+    cell.setAttribute('data-action', 'route');
+    cell.setAttribute('data-name', pl.name);
+    cell.setAttribute('data-lat', pl.lat);
+    cell.setAttribute('data-lon', pl.lon);
+    cell.setAttribute('data-dist', pl.dist);
+    if (pl.routeTo) cell.setAttribute('data-to', pl.routeTo);
+    cell.insertAdjacentHTML('afterbegin', PIN_SVG);
+    cell.appendChild(el('span', null, pl.dist + ' m'));
+    return cell;
+  }
+
+  // Ziel für Google Maps aus der Adresse in OpenStreetMap: "Name, Strasse Nr, PLZ Ort". Mit Name
+  // und Adresse findet Google das richtige Lokal; nur mit Koordinaten beschriftet es das Ziel
+  // mit dem nächstgelegenen Geschäft. Ohne Strasse und Nummer: '' (dann gelten die Koordinaten).
+  function routeAddress(t) {
+    if (!t['addr:street'] || !t['addr:housenumber']) return '';
+    var town = [t['addr:postcode'], t['addr:city']].filter(Boolean).join(' ') || 'Zürich';
+    return t.name + ', ' + t['addr:street'] + ' ' + t['addr:housenumber'] + ', ' + town;
+  }
+
+  // Eingebettete Karte von Google Maps mit dem Weg zu Fuss (3e2) vom Standort zum Ziel, als Text
+  // (to) oder als Koordinaten. Dieselbe Form wie "Teilen → Karte einbetten" bei Google Maps;
+  // braucht keinen Schlüssel. "!" trennt die Felder und muss im Text kodiert sein.
+  function routeUrl(lat, lon, to) {
+    var R = CONFIG.restaurants, start = Array.isArray(R.routeFrom) && R.routeFrom.length === 2 ? R.routeFrom : [R.lat, R.lon];
+    var from = '!4m3!3m2!1d' + start[0] + '!2d' + start[1];
+    if (to) {
+      return 'https://www.google.com/maps/embed?pb=!1m8!4m7!3e2' + from + '!4m1!2s' +
+             encodeURIComponent(to).replace(/%20/g, '+').replace(/!/g, '%21') + '!3m1!1sde!5m1!1sde';
+    }
+    return 'https://www.google.com/maps/embed?pb=!1m10!4m9!3e2' + from +
+           '!4m3!3m2!1d' + lat + '!2d' + lon + '!3m1!1sde!5m1!1sde';
+  }
+
+  function openRoute(t) {
+    var lat = parseFloat(t && t.getAttribute('data-lat')), lon = parseFloat(t && t.getAttribute('data-lon'));
+    if (!isFinite(lat) || !isFinite(lon)) return;
+    var R = CONFIG.restaurants;
+    $('route-title').textContent = 'Weg zu ' + t.getAttribute('data-name');
+    $('route-sub').textContent = 'zu Fuss ab ' + R.origin + ' · Luftlinie ' + t.getAttribute('data-dist') + ' m · Karte: Google Maps';
+    var frame = document.createElement('iframe');
+    // Ohne allow-popups und allow-top-navigation: Links der Karte («Weitere Optionen» …) können
+    // weder ein neues Fenster öffnen noch die Anzeige verlassen
+    frame.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    frame.setAttribute('title', 'Weg zu ' + t.getAttribute('data-name'));
+    frame.src = routeUrl(lat, lon, t.getAttribute('data-to') || '');
+    $('route-map').replaceChildren(el('div', 'route-wait', 'Karte wird geladen …'), frame);
+    $('route').classList.add('open');
+    routeOpen = true;
+  }
+
+  // Schliessen und die Karte ganz entfernen (gibt ihren Speicher frei)
+  function closeRoute() {
+    if (!routeOpen) return;
+    routeOpen = false;
+    $('route').classList.remove('open');
+    $('route-map').replaceChildren();
   }
 
   /* ---------- Tagesmenü (PDF des Lokals, von kiosk.sh als menu.js abgelegt) ---------- */
@@ -2423,6 +2571,7 @@
   function setView(next) {
     if (next !== 'food' && next !== 'local') next = 'trains';
     if (next === view) return;
+    closeRoute();
     view = next;
     foodFilter = 'open';
     foodPage = 0;
@@ -2473,6 +2622,8 @@
     else if (action === 'view') setView(target && target.getAttribute('data-view'));
     else if (action === 'look') setLook(look === 'comic' ? 'classic' : 'comic', true);
     else if (action === 'menu') openMenu(target && target.getAttribute('data-place'));
+    else if (action === 'route') openRoute(target);
+    else if (action === 'route-close') closeRoute();
   }
 
   function touchTarget(node) {
@@ -2525,7 +2676,7 @@
     document.addEventListener('keydown', function (ev) {
       if (ev.key === 'F5') { ev.preventDefault(); location.reload(); }
       else if (ev.ctrlKey && ['+', '-', '=', '0'].indexOf(ev.key) >= 0) ev.preventDefault();
-      else if (ev.key === 'Escape') closeOverlay();
+      else if (ev.key === 'Escape') { closeRoute(); closeOverlay(); }
     });
   }
 
@@ -2568,6 +2719,7 @@
     // Nach Inaktivität: Overlay schliessen und auf Standardfilter zurück
     if (CONFIG.idleResetSec > 0 && now - lastTouchAt >= CONFIG.idleResetSec * 1000) {
       lastTouchAt = now;
+      closeRoute();
       if (overlayMode) closeOverlay();
       if (view !== 'trains') setView('trains');
       resetFilters();
@@ -2629,6 +2781,14 @@
         ? 'Nach ' + Math.round(CONFIG.idleResetSec / 60) + ' Minuten ohne Berührung springt die Anzeige zurück auf «Züge» und den Filter «Alle».'
         : '');
     $('label-local').textContent = L.title;
+    // Hilfe: Beispiel des Distanz-Knopfs
+    $('legend-route').insertAdjacentHTML('afterbegin', PIN_SVG);
+    $('legend-route').appendChild(el('span', null, '92 m'));
+    $('legend-route-text').textContent = 'Distanz antippen: Weg zu Fuss ab ' + CONFIG.restaurants.origin + ' (Google Maps)';
+    if (!CONFIG.restaurants.route) {
+      var routeRows = document.querySelectorAll('.only-route');
+      for (var r = 0; r < routeRows.length; r++) routeRows[r].style.display = 'none';
+    }
 
     $('c-presenter').textContent = CONFIG.comic.presenter;
     $('c-title').textContent = CONFIG.appName + '!';

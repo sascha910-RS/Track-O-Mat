@@ -104,7 +104,8 @@ write_places() {
   python3 - "$1" "$2" <<'PY'
 import json, math, sys, time
 
-KEYS = ('name', 'amenity', 'cuisine', 'opening_hours', 'access')
+KEYS = ('name', 'amenity', 'cuisine', 'opening_hours', 'access',
+        'addr:street', 'addr:housenumber', 'addr:postcode', 'addr:city')   # Adresse: Ziel für den Weg (Google Maps)
 
 def number(value):
     ok = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)

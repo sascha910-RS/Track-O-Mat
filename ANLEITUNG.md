@@ -610,6 +610,22 @@ Take-aways rund um den Standort der Anzeige (UBS VZA1), mit Öffnungsstatus und 
 stehen zuerst; «Alle» zeigt auch die geschlossenen, mit «Zurück» und «Weiter» blättert
 man. Nach `idleResetSec` ohne Berührung springt die Anzeige zu den Zügen zurück.
 
+Die Distanz rechts ist ein Knopf (Stecknadel und Meter). Antippen öffnet ein Fenster über
+der Liste mit dem Weg zu Fuss ab dem VZA1, als eingebettete Karte von Google Maps mit
+Route und Gehzeit; das braucht keinen Schlüssel. Der Weg beginnt beim Ausgang an der
+Vulkanstrasse (`routeFrom`, Mitte der Westseite des Gebäudes), sonst führt Google ihn erst
+um das Gebäude herum zum Haupteingang. Ziel ist der Name des Lokals mit seiner
+Adresse aus OpenStreetMap, so findet Google das richtige Lokal. Fehlt die Adresse, gelten
+die Koordinaten; dann beschriftet Google das Ziel womöglich mit einem Geschäft daneben.
+Von Hand erfasste Lokale (`extra`) haben dafür `routeTo`. «Schliessen» oder Antippen neben
+das Fenster schliesst es, ebenso nach `idleResetSec` ohne Berührung. Berührungen in der
+Karte selbst zählen dabei nicht, weil die Karte eine eigene Seite ist. Links in der Karte
+(«Weitere Optionen» …) öffnen bewusst nichts, damit kein neues Fenster den Kiosk
+blockiert. Eingestellt wird das im Block `restaurants` mit `route` (`false` = Distanz nur
+als Text) und `origin` (Name des Standorts im Fenster). Die Adressen kommen mit der
+Restaurantliste; nach dem Update `kiosk.sh places` ausführen, sonst fehlen sie bis zum
+nächsten Morgen.
+
 Die Daten stammen von OpenStreetMap. `kiosk.sh` holt sie einmal pro Tag ab 07:00 Uhr
 (`refreshAt`) und legt sie als `places.js` neben die Seite; fehlt die Datei, holt es sie
 sofort, ausser in der Ruhezeit. War der Pi um 07:00 Uhr aus, folgt die Aktualisierung beim nächsten Start. Der
