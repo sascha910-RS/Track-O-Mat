@@ -509,10 +509,54 @@
   /* Sekundäre Kacheln: hellgrau, Icon über dem Text, Pfeil rechts */
   #actions {
     display: none;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 3px;
   }
   #actions.open { display: grid; }
+
+  /* ---------- Statistik (Info → Statistik) ---------- */
+  #panel-statistik { padding: 0 24px 14px; }
+  .st-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin: 0 -24px 14px; }
+  .st-tabs .tile { height: 60px; font-size: 21px; }
+  .st-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 8px; }
+  .st-kpi { min-width: 0; padding: 10px 12px 9px; background: var(--surface-alt); border: 1px solid var(--line); }
+  .st-kpi .v { font-size: 30px; line-height: 34px; font-weight: 600; color: var(--time); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st-kpi .v small { font-size: 20px; font-weight: 600; }
+  .st-kpi .l { font-size: 14px; line-height: 18px; color: var(--muted); }
+  .st-h { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 0 6px; }
+  .st-h b { font-size: 18px; font-weight: 600; color: var(--text); }
+  .st-h span { font-size: 14px; color: var(--muted); }
+  .st-chart { position: relative; height: 104px; margin: 22px 0 4px 34px; border-bottom: 1px solid var(--muted); }
+  .st-grid { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
+  .st-grid i { position: absolute; left: -34px; top: -9px; width: 28px; text-align: right; font-size: 12px; line-height: 16px; font-style: normal; color: var(--muted); }
+  .st-cols { position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: flex-end; gap: 2px; }
+  .st-col { flex: 1 1 0; position: relative; height: 100%; display: flex; align-items: flex-end; }
+  .st-col b { display: block; width: 100%; background: var(--tile); border-radius: 4px 4px 0 0; }
+  .st-col.future b { height: 100% !important; background: none; border: 1px dashed var(--line); border-bottom: 0; }
+  .st-col.now b { background: var(--time); }
+  .st-col em { position: absolute; left: -10px; right: -10px; text-align: center; font-size: 13px; line-height: 16px; font-weight: 600; font-style: normal; color: var(--text); }
+  .st-x { display: flex; gap: 2px; margin: 0 0 14px 34px; }
+  .st-x span { flex: 1 1 0; text-align: center; font-size: 12px; color: var(--muted); }
+  .st-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+  .st-table td { height: 31px; padding: 0 6px; border-bottom: 1px solid var(--line); font-size: 18px; white-space: nowrap; }
+  .st-table th { padding: 0 6px 3px; text-align: left; font-size: 13px; font-weight: 400; color: var(--muted); }
+  .st-table th.num, .st-table .num { text-align: right; }
+  .st-table .badge { min-width: 58px; height: 24px; line-height: 24px; font-size: 15px; }
+  .st-meter { display: inline-block; vertical-align: middle; width: 150px; height: 10px; margin-right: 10px; background: var(--line); }
+  .st-meter i { display: block; height: 100%; background: var(--tile); }
+  .st-week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px; }
+  .st-day { text-align: center; }
+  .st-day .p { font-size: 20px; font-weight: 600; }
+  .st-day .st-meter { width: 100%; margin: 4px 0 2px; }
+  .st-day.today .st-meter i { background: var(--time); }
+  .st-day .d { font-size: 13px; color: var(--muted); }
+  .st-rank { margin-bottom: 14px; }
+  .st-rank div { display: grid; grid-template-columns: 250px 1fr 44px; align-items: center; height: 34px; font-size: 18px; }
+  .st-rank s { display: block; height: 14px; text-decoration: none; background: var(--tile); border-radius: 0 4px 4px 0; }
+  .st-rank .n { text-align: right; font-weight: 600; }
+  .st-empty { padding: 6px 0 14px; font-size: 17px; color: var(--muted); }
+  .st-note { font-size: 13px; line-height: 18px; color: var(--muted); }
+  #panel-statistik .kv { min-height: 40px; grid-template-columns: 280px 1fr; font-size: 18px; }
   .tile2 {
     position: relative;
     height: 132px;
@@ -838,6 +882,18 @@
   }
   html.comic .legend .sample-tile { font: 22px/30px var(--f-comic); letter-spacing: 1px; text-transform: uppercase; border-radius: 9px; }
   html.comic #actions { gap: 14px; padding: 0 26px 0 20px; }
+  html.comic .st-tabs { margin: 0 0 14px; gap: 9px; }
+  html.comic .st-kpi { background: var(--c-paper); border: 3px solid var(--c-line); border-radius: 10px; box-shadow: 4px 4px 0 var(--c-line); }
+  html.comic .st-kpi .v { font: 38px/40px var(--f-comic); letter-spacing: 1px; color: var(--c-text); }
+  html.comic .st-kpi .v small { font: 24px var(--f-comic); }
+  html.comic .st-kpi .l, html.comic .st-h span, html.comic .st-note, html.comic .st-x span,
+  html.comic .st-day .d, html.comic .st-empty, html.comic .st-grid i { color: var(--c-text); opacity: 0.75; }
+  html.comic .st-h b { font: 24px/28px var(--f-comic); letter-spacing: 1px; text-transform: uppercase; color: var(--c-red); }
+  html.comic .st-col b, html.comic .st-meter i, html.comic .st-rank s { background: var(--c-mint); border: 2px solid var(--c-line); }
+  html.comic .st-col.now b, html.comic .st-day.today .st-meter i { background: var(--c-text); }
+  html.comic .st-col.future b { border: 2px dashed var(--c-line); opacity: 0.35; }
+  html.comic .st-meter { height: 14px; background: var(--c-paper); border: 2px solid var(--c-line); }
+  html.comic .st-table td { border-bottom: 2px dashed var(--c-text); }
   html.comic .tile2 {
     height: 112px;
     font: 25px/28px var(--f-comic); letter-spacing: 1px; text-transform: uppercase;
@@ -1031,6 +1087,14 @@
       <div class="note" id="menu-note"></div>
     </div>
 
+    <div class="panel" id="panel-statistik">
+      <div class="st-tabs">
+        <div class="tile" data-action="statistik-tab" data-tab="trains" id="st-tab-trains">Züge</div>
+        <div class="tile" data-action="statistik-tab" data-tab="use" id="st-tab-use">Anzeige &amp; System</div>
+      </div>
+      <div id="st-body"></div>
+    </div>
+
     <div id="actions">
       <div class="tile2" data-action="refresh">
         <svg class="icon" viewBox="0 0 44 44"><path d="M36 22a14 14 0 1 1-4.1-9.9"/><path d="M36 8v8h-8"/></svg>
@@ -1039,6 +1103,10 @@
       <div class="tile2" data-action="reset">
         <svg class="icon" viewBox="0 0 44 44"><path d="M8 11h28L25 24v10l-6 3V24z"/></svg>
         Filter zurücksetzen
+      </div>
+      <div class="tile2" data-action="statistik" id="statistik-btn">
+        <svg class="icon" viewBox="0 0 44 44"><path d="M8 36h28M12 36V24M20 36V14M28 36V20M36 36V9"/></svg>
+        Statistik
       </div>
     </div>
   </div>
@@ -1158,6 +1226,15 @@
       url: 'https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/{station}/ogd-smn_{station}_t_now.csv',
       refreshMin: 10,                             // so oft nachfragen
       maxAgeMin: 60                               // ältere Werte nicht zeigen
+    },
+    // Statistik (Info → «Statistik»): Pünktlichkeit der Züge und Nutzung der Anzeige pro Tag.
+    // Gezählt wird im Browser, gespeichert als Summen in localStorage (Chromium-Profil), damit
+    // die SD-Karte geschont wird nur alle saveMin Minuten. Tram und Bus werden nicht gezählt.
+    statistics: {
+      enabled: true,                              // false = keine Statistik (Kachel ausgeblendet)
+      saveMin: 30,                                // Summen höchstens so oft speichern
+      keepDays: 28,                               // so viele Tage aufbewahren
+      punctualMin: 3                              // pünktlich = weniger Minuten Verspätung (wie SBB)
     },
     // Ruhezeit: keine Abfragen; statt der Liste ein dunkler Ruhebildschirm mit Uhr. Antippen
     // weckt die Anzeige nicht. kiosk.sh liest diesen Block ebenfalls und holt in der
@@ -1337,6 +1414,7 @@
   var restWake = 0;          // Ende der laufenden Ruhezeit (ms), 0 = unbekannt
   var statsLoading = false;  // Messwerte von kiosk.sh werden gerade gelesen
   var nextStatsAt = 0;
+  var nextSysAt = 0;         // Messwerte von kiosk.sh auch ohne Info-Fenster lesen (Statistik)
   var temp = null;           // letzte Aussentemperatur: { value (°C), at (Messzeit, ms) }
   var tempLoading = false;
   var nextTempAt = 0;
@@ -1843,6 +1921,8 @@
     if (on) {
       // Alte Abfahrten verwerfen, damit beim Aufwachen nichts Veraltetes erscheint
       for (var n in boards) { boards[n].entries = []; boards[n].hasData = false; }
+      tallyPending = {};
+      tallySave(now);            // Statistik sichern, bevor die Nacht beginnt
       closeRoute();
       closeOverlay();
       restWake = nextWake(now);
@@ -1910,6 +1990,11 @@
         b.hasData = true;
         b.online = true;
         b.lastOk = Date.now();
+        if (b === boards.trains) {               // Statistik: nur Züge, Tram und Bus nicht
+          tallyTrains(list, b.lastOk);
+          tallyFetch(true);
+          renderTally();
+        }
         if (boards[view] === b) render();
         updateStatus();
       })
@@ -1918,6 +2003,7 @@
         // Letzte Daten bleiben stehen; der nächste Versuch folgt automatisch
         ctrl.abort();            // die übrigen Abfragen dieser Runde abbrechen
         b.online = false;
+        if (b === boards.trains) tallyFetch(false);
         lastError = fmtStamp.format(new Date()) + ' – ' + (b === boards.trains ? '' : b.cfg.name + ': ') + errorText(err);
         updateStatus();
         if (!b.hasData && boards[view] === b) render();
@@ -1965,7 +2051,8 @@
   var OVERLAYS = {
     help: { title: 'Hilfe', label: 'Legende der Farben und Symbole' },
     info: { title: 'Info', label: 'Über diese Anzeige' },
-    menu: { title: 'Tagesmenü', label: 'Die Menüs von heute' }
+    menu: { title: 'Tagesmenü', label: 'Die Menüs von heute' },
+    statistik: { title: 'Statistik', label: 'Wie pünktlich die Züge sind und wie die Anzeige genutzt wird' }
   };
 
   function openOverlay(mode) {
@@ -1975,9 +2062,11 @@
     $('panel-help').classList.toggle('open', mode === 'help');
     $('panel-info').classList.toggle('open', mode === 'info');
     $('panel-menu').classList.toggle('open', mode === 'menu');
+    $('panel-statistik').classList.toggle('open', mode === 'statistik');
     $('actions').classList.toggle('open', mode === 'info');
     elOverlay.classList.add('open');
     if (mode === 'info') loadStats();
+    if (mode === 'statistik') renderTally();
   }
   function closeOverlay() {
     overlayMode = '';
@@ -2037,11 +2126,325 @@
       tag.remove();
       statsLoading = false;
       showStats(st);
+      tallySystem(st);
     };
     tag.onload = function () { done(true); };
     tag.onerror = function () { done(false); };
     tag.src = 'file://' + STATS_SRC + '?' + Date.now();
     document.head.appendChild(tag);
+  }
+
+  /* ---------- Statistik (Info → Statistik) ---------- */
+  // Zählt pro Tag die Abfahrten der Züge (Pünktlichkeit nach Stunde und Linie) und die Nutzung
+  // der Anzeige. Die Summen liegen im Arbeitsspeicher und werden höchstens alle
+  // CONFIG.statistics.saveMin Minuten in localStorage geschrieben (dazu beim Beginn der
+  // Ruhezeit und beim Verlassen der Seite), damit die SD-Karte geschont wird.
+  // Tag: { t: Züge { n, ok, sum (Minuten), max, h: { Stunde: [n, ok] }, l: { Linie: [n, ok, sum, Art] } },
+  //        u: Nutzung { taps, h: { Stunde: n }, ev: { Ereignis: n }, pl: { Lokal: n } },
+  //        s: System { tMin, tMax, ok, fail } }
+  var TALLY_KEY = 'track-o-mat.statistics';
+  var tally = { v: 1, days: {} };
+  var tallyDirty = false, tallySavedAt = Date.now();
+  var tallyPending = {};     // Züge vor der Abfahrt: key -> { e: Abfahrt, seen: zuletzt abgefragt (ms) }
+  var tallyTab = 'trains';   // gezeigte Seite: 'trains' oder 'use'
+  var sysInfo = null;        // letzte Messwerte von kiosk.sh (Laufzeit, Neustarts, WLAN)
+
+  function tallyOn() { return CONFIG.statistics && CONFIG.statistics.enabled; }
+  function hourOf(ms) { return String(+zurichParts(ms).time.slice(0, 2)); }
+
+  // Tag zum Schreiben (legt ihn an); zum Lesen tallyRead
+  function tallyDay(key) {
+    var d = tally.days[key];
+    if (!d) {
+      d = tally.days[key] = { t: { n: 0, ok: 0, sum: 0, max: null, h: {}, l: {} },
+                              u: { taps: 0, h: {}, ev: {}, pl: {} }, s: { tMin: null, tMax: null, ok: 0, fail: 0 } };
+    }
+    tallyDirty = true;
+    return d;
+  }
+  function tallyRead(key) { return tally.days[key] || null; }
+
+  function tallyLoad() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(TALLY_KEY) || 'null');
+      if (raw && raw.v === 1 && raw.days && typeof raw.days === 'object') tally = raw;
+    } catch (err) { /* beschädigt oder nicht verfügbar: neu beginnen */ }
+  }
+
+  // Ältere Tage als keepDays fallen weg; geschrieben wird nur, wenn sich etwas geändert hat
+  function tallySave(now) {
+    tallySavedAt = now;
+    if (!tallyOn() || !tallyDirty) return;
+    tallyDirty = false;
+    var oldest = dateKey(now, -(CONFIG.statistics.keepDays - 1));
+    Object.keys(tally.days).forEach(function (k) { if (k < oldest) delete tally.days[k]; });
+    try { localStorage.setItem(TALLY_KEY, JSON.stringify(tally)); } catch (err) { /* voll oder nicht verfügbar */ }
+  }
+
+  // Nach jeder Abfrage der Züge: Abfahrten der nächsten 90 Minuten merken. Ist eine abgefahren,
+  // zählt sie mit der Verspätung der letzten Abfrage davor, aber nur, wenn diese höchstens
+  // 2 Minuten vor der Abfahrt lag; sonst wäre die Verspätung veraltet (etwa nach einem WLAN-Ausfall).
+  function tallyTrains(list, now) {
+    if (!tallyOn()) return;
+    var i, key, p;
+    for (i = 0; i < list.length; i++) {
+      var e = list[i];
+      if (e.real >= now - 60000 && e.real <= now + 5400000) tallyPending[e.key] = { e: e, seen: now };
+    }
+    for (key in tallyPending) {
+      p = tallyPending[key];
+      if (p.e.real > now) continue;
+      delete tallyPending[key];
+      if (p.seen >= p.e.real - 120000) tallyDeparture(p.e);
+    }
+  }
+
+  function tallyDeparture(e) {
+    var t = tallyDay(dateKey(e.planned, 0)).t, h = hourOf(e.planned);
+    var late = Math.max(0, e.delay || 0), ok = late < CONFIG.statistics.punctualMin ? 1 : 0;
+    t.n++; t.ok += ok; t.sum += late;
+    var hh = t.h[h] || (t.h[h] = [0, 0]);
+    hh[0]++; hh[1] += ok;
+    var ll = t.l[e.line] || (t.l[e.line] = [0, 0, 0, e.kind]);
+    ll[0]++; ll[1] += ok; ll[2] += late;
+    if (!t.max || late > t.max.d) t.max = { d: late, line: e.line, at: e.planned };
+  }
+
+  // Nutzung: jede Berührung (Stunde) und was angetippt wurde (Ereignis, Lokal)
+  function tallyTap(now) {
+    if (!tallyOn() || resting) return;
+    var u = tallyDay(dateKey(now, 0)).u, h = hourOf(now);
+    u.taps++;
+    u.h[h] = (u.h[h] || 0) + 1;
+  }
+  function tallyUse(name, place) {
+    if (!tallyOn()) return;
+    var u = tallyDay(dateKey(Date.now(), 0)).u;
+    if (name) u.ev[name] = (u.ev[name] || 0) + 1;
+    if (place) u.pl[place] = (u.pl[place] || 0) + 1;
+  }
+  function tallyFetch(ok) {
+    if (!tallyOn()) return;
+    var s = tallyDay(dateKey(Date.now(), 0)).s;
+    if (ok) s.ok++; else s.fail++;
+  }
+
+  // Messwerte von kiosk.sh: Temperaturbereich des Tages, Laufzeit, Neustarts, WLAN
+  function tallySystem(st) {
+    if (!st || typeof st.at !== 'number' || Date.now() - st.at > 30000) return;
+    sysInfo = st;
+    if (!tallyOn() || typeof st.tempC !== 'number') return;
+    var s = tallyDay(dateKey(Date.now(), 0)).s;
+    if (s.tMin === null || st.tempC < s.tMin) s.tMin = st.tempC;
+    if (s.tMax === null || st.tempC > s.tMax) s.tMax = st.tempC;
+  }
+
+  // Schlüssel der Tage dieser Woche, Montag bis Sonntag
+  function weekKeys(now) {
+    var day = zurichParts(now).day, out = [];
+    for (var i = 0; i < 7; i++) out.push(dateKey(now, i - day));
+    return out;
+  }
+
+  function pct(ok, n) { return n ? Math.round(ok * 100 / n) : null; }
+  function dec1(x) { return x.toLocaleString(CONFIG.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+
+  function kpi(value, unit, label) {
+    var box = el('div', 'st-kpi'), v = el('div', 'v', value);
+    if (unit) { v.appendChild(document.createTextNode(' ')); v.appendChild(el('small', null, unit)); }
+    box.appendChild(v);
+    label.split('\n').forEach(function (line, i) {
+      if (i) box.lastChild.appendChild(el('br'));
+      if (i) box.lastChild.appendChild(document.createTextNode(line)); else box.appendChild(el('div', 'l', line));
+    });
+    return box;
+  }
+  function heading(title, note) {
+    var h = el('div', 'st-h');
+    h.appendChild(el('b', null, title));
+    h.appendChild(el('span', null, note));
+    return h;
+  }
+  function meterSpan(p) {
+    var m = el('span', 'st-meter'), i = el('i');
+    i.style.width = (p || 0) + '%';
+    m.appendChild(i);
+    return m;
+  }
+  function rankList(items) {
+    var box = el('div', 'st-rank'), top = items.length ? items[0][1] : 1;
+    items.forEach(function (it) {
+      var row = el('div');
+      row.appendChild(el('span', null, it[0]));
+      var bar = el('s');
+      bar.style.width = Math.max(2, it[1] * 100 / top) + '%';
+      row.appendChild(bar);
+      row.appendChild(el('span', 'n', String(it[1])));
+      box.appendChild(row);
+    });
+    return box;
+  }
+
+  // Seite «Züge»: heute (Kacheln, Stunden, Linien) und die Woche Mo–Fr
+  function tallyTrainsPage(box, now) {
+    var today = tallyRead(dateKey(now, 0)), t = today ? today.t : { n: 0, ok: 0, sum: 0, max: null, h: {}, l: {} };
+    var kpis = el('div', 'st-kpis'), p = pct(t.ok, t.n);
+    kpis.appendChild(kpi(String(t.n), '', 'Abfahrten heute'));
+    kpis.appendChild(kpi(p === null ? '–' : String(p), p === null ? '' : '%', 'pünktlich¹'));
+    kpis.appendChild(kpi(t.n ? dec1(t.sum / t.n) : '–', t.n ? 'min' : '', 'Ø Verspätung'));
+    kpis.appendChild(t.max && t.max.d > 0
+      ? kpi('+' + t.max.d + "'", '', t.max.line + ', ' + hhmm(t.max.at) + ' Uhr\ngrösste Verspätung')
+      : kpi('–', '', 'grösste Verspätung'));
+    box.appendChild(kpis);
+
+    // Pünktlich nach Stunde, 5 bis 23 Uhr; die laufende Stunde dunkel, kommende leer
+    box.appendChild(heading('Pünktlich nach Stunde', 'Anteil in %, heute'));
+    var chart = el('div', 'st-chart'), cols = el('div', 'st-cols'), xs = el('div', 'st-x');
+    [['0', '100'], ['50%', '50']].forEach(function (g) {
+      var line = el('div', 'st-grid');
+      line.style.top = g[0];
+      line.appendChild(el('i', null, g[1]));
+      chart.appendChild(line);
+    });
+    var nowHour = +hourOf(now), vals = [];
+    for (var h = 5; h <= 23; h++) {
+      var c = t.h[String(h)], v = c ? pct(c[1], c[0]) : null;
+      if (v !== null) vals.push(v);
+    }
+    var lo = vals.length ? Math.min.apply(null, vals) : null, hi = vals.length ? Math.max.apply(null, vals) : null;
+    var labelled = {};
+    for (h = 5; h <= 23; h++) {
+      var cnt = t.h[String(h)], val = cnt ? pct(cnt[1], cnt[0]) : null;
+      var col = el('div', 'st-col' + (h > nowHour ? ' future' : h === nowHour ? ' now' : ''));
+      var bar = el('b');
+      if (val !== null && h <= nowHour) {
+        bar.style.height = Math.max(1, val) + '%';
+        // Beschriftet: tiefster und höchster Wert sowie die laufende Stunde, je einmal
+        if ((val === lo || val === hi || h === nowHour) && !labelled[val + '|' + (h === nowHour)]) {
+          labelled[val + '|' + (h === nowHour)] = true;
+          var em = el('em', null, String(val));
+          em.style.bottom = (val + 2) + '%';
+          col.appendChild(em);
+        }
+      } else if (h <= nowHour) bar.style.height = '0';
+      col.insertBefore(bar, col.firstChild);
+      cols.appendChild(col);
+      xs.appendChild(el('span', null, h % 3 === 2 ? String(h) : ''));
+    }
+    chart.appendChild(cols);
+    box.appendChild(chart);
+    box.appendChild(xs);
+
+    // Nach Linie, die häufigsten zuerst (höchstens 8)
+    box.appendChild(heading('Nach Linie', 'heute'));
+    var lines = Object.keys(t.l).map(function (k) { return [k].concat(t.l[k]); })
+      .sort(function (a, b) { return b[1] - a[1] || (a[0] < b[0] ? -1 : 1); });
+    if (!lines.length) box.appendChild(el('div', 'st-empty', 'Heute noch keine Abfahrt gezählt'));
+    else {
+      var table = el('table', 'st-table'), head = el('tr');
+      [['Linie', ''], ['Abfahrten', 'num'], ['pünktlich', ''], ['Ø Verspätung', 'num']].forEach(function (c) { head.appendChild(el('th', c[1], c[0])); });
+      table.appendChild(head);
+      lines.slice(0, 8).forEach(function (l) {
+        var tr = el('tr'), lp = pct(l[2], l[1]), cell = el('td'), mtd = el('td');
+        cell.appendChild(el('span', 'badge k-' + (l[4] || 'other'), l[0]));
+        tr.appendChild(cell);
+        tr.appendChild(el('td', 'num', String(l[1])));
+        mtd.appendChild(meterSpan(lp));
+        mtd.appendChild(document.createTextNode(lp + ' %'));
+        tr.appendChild(mtd);
+        tr.appendChild(el('td', 'num', dec1(l[3] / l[1]) + ' min'));
+        table.appendChild(tr);
+      });
+      box.appendChild(table);
+    }
+
+    // Diese Woche, Montag bis Freitag
+    box.appendChild(heading('Diese Woche', 'pünktlich, Mo–Fr'));
+    var week = el('div', 'st-week'), keys = weekKeys(now), todayKey = dateKey(now, 0);
+    for (var d = 0; d < 5; d++) {
+      var dk = keys[d], dt = tallyRead(dk), dp = dt ? pct(dt.t.ok, dt.t.n) : null;
+      var cell2 = el('div', 'st-day' + (dk === todayKey ? ' today' : ''));
+      cell2.appendChild(el('div', 'p', dp === null ? '–' : dp + ' %'));
+      cell2.appendChild(meterSpan(dp));
+      var parts = dk.split('-');
+      cell2.appendChild(el('div', 'd', DAYS_DE[d] + ' ' + (dk === todayKey ? 'heute' : +parts[2] + '.' + +parts[1] + '.')));
+      week.appendChild(cell2);
+    }
+    box.appendChild(week);
+    box.appendChild(el('div', 'st-note', '¹ Pünktlich heisst weniger als ' + CONFIG.statistics.punctualMin +
+      ' Minuten Verspätung bei der Abfahrt, wie bei der SBB. Gezählt wird, während die Anzeige läuft; ' +
+      'Ausfälle fehlen in den Daten.'));
+  }
+
+  var TALLY_EVENTS = [['view-food', 'Restaurants'], ['view-local', 'Tram & Bus'], ['menu', 'Tagesmenü angesehen'],
+                      ['route', 'Weg angezeigt'], ['look', 'Look gewechselt'], ['help', 'Hilfe oder Info'],
+                      ['statistik', 'Statistik'], ['filter', 'Filter gewählt']];
+
+  // Seite «Anzeige & System»: Nutzung (heute und diese Woche) und Zustand des Pi
+  function tallyUsePage(box, now) {
+    var todayKey = dateKey(now, 0), today = tallyRead(todayKey), keys = weekKeys(now);
+    var taps = 0, hours = {}, ev = {}, pl = {}, ok = 0, fail = 0;
+    keys.forEach(function (k) {
+      var d = tallyRead(k);
+      if (!d) return;
+      taps += d.u.taps; ok += d.s.ok; fail += d.s.fail;
+      var x;
+      for (x in d.u.h) hours[x] = (hours[x] || 0) + d.u.h[x];
+      for (x in d.u.ev) {
+        var name = x === 'info' ? 'help' : x;          // Hilfe und Info zusammen
+        ev[name] = (ev[name] || 0) + d.u.ev[x];
+      }
+      for (x in d.u.pl) pl[x] = (pl[x] || 0) + d.u.pl[x];
+    });
+    var busy = null;
+    Object.keys(hours).forEach(function (h) { if (busy === null || hours[h] > hours[busy]) busy = h; });
+
+    var kpis = el('div', 'st-kpis');
+    kpis.appendChild(kpi(String(today ? today.u.taps : 0), '', 'Berührungen heute'));
+    kpis.appendChild(kpi(String(taps), '', 'diese Woche'));
+    kpis.appendChild(busy === null ? kpi('–', '', 'meiste Nutzung')
+      : kpi(busy + '–' + (+busy + 1), '', 'Uhr: meiste Nutzung\ndiese Woche'));
+    kpis.appendChild(kpi(String(today && today.u.ev.menu || 0), '', 'Tagesmenüs\nangesehen heute'));
+    box.appendChild(kpis);
+
+    box.appendChild(heading('Was angetippt wird', 'diese Woche'));
+    var used = TALLY_EVENTS.filter(function (e) { return ev[e[0]]; }).map(function (e) { return [e[1], ev[e[0]]]; })
+      .sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6);
+    box.appendChild(used.length ? rankList(used) : el('div', 'st-empty', 'Diese Woche noch nichts angetippt'));
+
+    box.appendChild(heading('Beliebteste Lokale', 'Menü oder Weg, diese Woche'));
+    var top = Object.keys(pl).map(function (k) { return [k, pl[k]]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 4);
+    box.appendChild(top.length ? rankList(top) : el('div', 'st-empty', 'Diese Woche noch kein Menü oder Weg angesehen'));
+
+    box.appendChild(heading('System', 'Raspberry Pi'));
+    var kv = function (k, v) {
+      var row = el('div', 'kv');
+      row.appendChild(el('span', null, k));
+      row.appendChild(el('span', null, v));
+      box.appendChild(row);
+      return row;
+    };
+    var pi = !!STATS_SRC, si = sysInfo || {};
+    var up = typeof si.uptimeSec === 'number' ? si.uptimeSec : null;
+    kv('Läuft seit', !pi ? 'nur im Kiosk-Betrieb' : up === null ? '–'
+      : (up >= 86400 ? Math.floor(up / 86400) + (up >= 172800 ? ' Tagen, ' : ' Tag, ') : '') + Math.floor(up % 86400 / 3600) + ' Stunden');
+    var s = today ? today.s : null;
+    kv('Temperatur heute', s && s.tMin !== null ? (s.tMin === s.tMax ? s.tMin : s.tMin + '–' + s.tMax) + ' °C'
+      : (pi ? '–' : 'nur im Kiosk-Betrieb'));
+    kv('Unerwartete Neustarts', !pi ? 'nur im Kiosk-Betrieb' : typeof si.weekRestarts === 'number'
+      ? si.weekRestarts + ' diese Woche (ohne den täglichen um 03:35)' : '–');
+    kv('WLAN-Unterbrüche', !pi ? 'nur im Kiosk-Betrieb' : typeof si.weekNetDown === 'number'
+      ? (si.weekNetDown ? si.weekNetDown + ' diese Woche, zusammen ' + si.weekNetMin + ' Minuten' : 'keine diese Woche') : '–');
+    kv('Abfragen erfolgreich', ok + fail ? dec1(ok * 100 / (ok + fail)) + ' % (Abfahrten, diese Woche)' : '–').style.borderBottom = '0';
+  }
+
+  function renderTally() {
+    if (overlayMode !== 'statistik') return;
+    var box = document.createDocumentFragment(), now = Date.now();
+    $('st-tab-trains').classList.toggle('active', tallyTab === 'trains');
+    $('st-tab-use').classList.toggle('active', tallyTab === 'use');
+    if (tallyTab === 'use') tallyUsePage(box, now); else tallyTrainsPage(box, now);
+    $('st-body').replaceChildren(box);
   }
 
   /* ---------- Aussentemperatur (MeteoSchweiz) ---------- */
@@ -2612,18 +3015,29 @@
 
   /* ---------- Eingaben ---------- */
   function onAction(action, target) {
-    if (action === 'help' || action === 'info') openOverlay(action);
+    var arg;
+    if (action === 'help' || action === 'info') { openOverlay(action); tallyUse(action); }
     else if (action === 'close') closeOverlay();
     else if (action === 'refresh') {
       if (!resting) { loadBoard(boards.trains); if (view === 'local') loadBoard(boards.local); }
       closeOverlay();
     }
     else if (action === 'reset') { resetFilters(); closeOverlay(); }
-    else if (action === 'view') setView(target && target.getAttribute('data-view'));
-    else if (action === 'look') setLook(look === 'comic' ? 'classic' : 'comic', true);
-    else if (action === 'menu') openMenu(target && target.getAttribute('data-place'));
-    else if (action === 'route') openRoute(target);
+    else if (action === 'view') {
+      arg = target && target.getAttribute('data-view');
+      if (arg && arg !== view) tallyUse('view-' + arg);
+      setView(arg);
+    }
+    else if (action === 'look') { setLook(look === 'comic' ? 'classic' : 'comic', true); tallyUse('look'); }
+    else if (action === 'menu') {
+      arg = target && target.getAttribute('data-place');
+      openMenu(arg);
+      if (overlayMode === 'menu') tallyUse('menu', CONFIG.restaurants.rename[arg] || arg);
+    }
+    else if (action === 'route') { openRoute(target); if (routeOpen) tallyUse('route', target.getAttribute('data-name')); }
     else if (action === 'route-close') closeRoute();
+    else if (action === 'statistik') { openOverlay('statistik'); tallyUse('statistik'); }
+    else if (action === 'statistik-tab') { tallyTab = target.getAttribute('data-tab') === 'use' ? 'use' : 'trains'; renderTally(); }
   }
 
   function touchTarget(node) {
@@ -2649,6 +3063,7 @@
     // Sofortiges Feedback beim Antippen/Anklicken (Farbwechsel ohne Animation)
     document.addEventListener('pointerdown', function (ev) {
       lastTouchAt = Date.now();
+      tallyTap(lastTouchAt);
       setMouse(ev.pointerType === 'mouse');
       clearPressed();
       pressedEl = touchTarget(ev.target);
@@ -2660,7 +3075,7 @@
     document.addEventListener('click', function (ev) {
       var t = touchTarget(ev.target);
       if (!t) return;
-      if (t.hasAttribute('data-filter')) setFilter(boards[t.getAttribute('data-board')], t.getAttribute('data-filter'));
+      if (t.hasAttribute('data-filter')) { setFilter(boards[t.getAttribute('data-board')], t.getAttribute('data-filter')); tallyUse('filter'); }
       else if (t.hasAttribute('data-food')) onFood(t.getAttribute('data-food'));
       else onAction(t.getAttribute('data-action'), t);
     });
@@ -2699,6 +3114,9 @@
     if (!resting && now >= boards.trains.nextFetchAt) loadBoard(boards.trains);
     if (!resting && view === 'local' && now >= boards.local.nextFetchAt) loadBoard(boards.local);
     if (overlayMode === 'info' && now >= nextStatsAt) loadStats();
+    // Statistik: Temperatur und Zustand des Pi alle 5 Minuten, Summen alle saveMin Minuten sichern
+    if (tallyOn() && STATS_SRC && now >= nextSysAt) { nextSysAt = now + 300000; loadStats(); }
+    if (tallyOn() && now - tallySavedAt >= CONFIG.statistics.saveMin * 60000) tallySave(now);
     if (CONFIG.weather.enabled) {
       if (!resting && now >= nextTempAt) loadTemp();
       updateTemp(now);
@@ -2802,6 +3220,12 @@
     // Die eingebetteten Schriften verändern Höhen erst, wenn sie geladen sind
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { layout(); render(); });
 
+    tallyLoad();
+    window.addEventListener('pagehide', function () { tallySave(Date.now()); });
+    if (!tallyOn()) {
+      $('statistik-btn').style.display = 'none';
+      $('actions').style.gridTemplateColumns = 'repeat(2, 1fr)';
+    }
     bindInput();
     buildFilters('trains');
     buildFilters('local');

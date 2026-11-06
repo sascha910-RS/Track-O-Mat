@@ -37,6 +37,7 @@ STATS_FILE="$RUN_DIR/track-o-mat-stats.js"
 PROC_STAT=/proc/stat
 PROC_MEMINFO=/proc/meminfo
 THERMAL=/sys/class/thermal/thermal_zone0/temp      # Temperatur des Prozessors in tausendstel Grad
+UPTIME=/proc/uptime                                # Sekunden seit dem Start des Pi (Statistik)
 
 # Die Seite erfährt über die Adresse, wo die Messwerte liegen
 URL="file://$APP_DIR/track-o-mat.html"
@@ -352,13 +353,40 @@ menu_loop() {
   done
 }
 
+# Für die Statistik der Seite: zählt im Protokoll ab Montag dieser Woche die unerwarteten
+# Neustarts von Chromium (Starts ohne Start der Schleife und ohne den täglichen Neustart, also
+# Abstürze und Eingriffe des Wächters) und die WLAN-Unterbrüche, die der Netzwerk-Wächter
+# bemerkt hat (ab NET_STALL Minuten), samt Dauer. Ausgabe: "Neustarts Unterbrüche Minuten"
+log_week_counts() {
+  local monday
+  monday="$(date -d "$(( $(date +%u) - 1 )) days ago" +%F 2>/dev/null)"
+  if [ -z "$monday" ]; then echo "null null null"; return; fi
+  cat "$LOG_FILE.1" "$LOG_FILE" 2>/dev/null | awk -v from="$monday" '
+    $1 < from { next }
+    / Chromium gestartet$/ { starts++ }
+    / Kiosk-Schleife gestartet / { loops++ }
+    / Wächter: täglicher Neustart/ { daily++ }
+    / Netzwerk: wieder verbunden nach / { down++; for (i = 1; i < NF; i++) if ($i == "nach") mins += $(i + 1) }
+    END { r = starts - loops - daily; if (r < 0) r = 0; printf "%d %d %d\n", r, down, mins }'
+}
+
 # Misst alle STATS_INTERVAL Sekunden die CPU-Auslastung seit der letzten Messung (aus
 # /proc/stat), den belegten Arbeitsspeicher (MemTotal minus MemAvailable aus
 # /proc/meminfo) und die Temperatur des Prozessors (THERMAL) und schreibt alles nach STATS_FILE.
+# Dazu für die Statistik die Laufzeit des Pi und alle 5 Minuten die Zahlen aus log_week_counts.
 stats_loop() {
   local cpu_line user nice system idle iowait irq softirq steal total busy
   local prev_total=0 prev_busy=0 cpu mem_total mem_avail cores key value unit milli temp
+  local up restarts=null netdown=null netmin=null next_counts=0
   while true; do
+    if [ "$SECONDS" -ge "$next_counts" ]; then
+      read -r restarts netdown netmin <<< "$(log_week_counts)"
+      next_counts=$((SECONDS + 300))
+    fi
+    up=null
+    if read -r up _ < "$UPTIME" 2>/dev/null; then up="${up%%.*}"; fi
+    [[ "$up" =~ ^[0-9]+$ ]] || up=null
+
     read -r cpu_line user nice system idle iowait irq softirq steal _ < "$PROC_STAT"
     total=$((user + nice + system + idle + iowait + irq + softirq + steal))
     busy=$((total - idle - iowait))
@@ -383,8 +411,9 @@ stats_loop() {
       temp=$(( (milli + 500) / 1000 ))
     fi
 
-    printf 'window.TRACKOMAT_STATS = {"at": %s000, "cpu": %s, "cores": %s, "memTotalKb": %s, "memUsedKb": %s, "tempC": %s};\n' \
-      "$(date +%s)" "$cpu" "${cores:-0}" "$mem_total" "$((mem_total - mem_avail))" "$temp" > "$STATS_FILE.tmp" \
+    printf 'window.TRACKOMAT_STATS = {"at": %s000, "cpu": %s, "cores": %s, "memTotalKb": %s, "memUsedKb": %s, "tempC": %s, "uptimeSec": %s, "weekRestarts": %s, "weekNetDown": %s, "weekNetMin": %s};\n' \
+      "$(date +%s)" "$cpu" "${cores:-0}" "$mem_total" "$((mem_total - mem_avail))" "$temp" \
+      "$up" "${restarts:-null}" "${netdown:-null}" "${netmin:-null}" > "$STATS_FILE.tmp" \
       && mv -f "$STATS_FILE.tmp" "$STATS_FILE"
     sleep "$STATS_INTERVAL"
   done

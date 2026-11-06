@@ -540,6 +540,34 @@ verfügbar ist (`MemTotal` minus `MemAvailable`). Ohne `kiosk.sh`, etwa beim Öf
 am Mac, steht «nur im Kiosk-Betrieb». Ausschalten mit `STATS_INTERVAL=0` am Anfang von
 `kiosk.sh`.
 
+### Statistik
+
+Im Info-Fenster öffnet die Kachel «Statistik» zwei Seiten:
+
+- **Züge:** Abfahrten heute, Anteil pünktlich, durchschnittliche und grösste Verspätung,
+  dazu pünktlich nach Stunde (5 bis 23 Uhr), nach Linie (die acht häufigsten) und für
+  Montag bis Freitag dieser Woche. Pünktlich heisst weniger als 3 Minuten Verspätung bei der
+  Abfahrt (`punctualMin`), wie bei der SBB. Gezählt wird mit der Verspätung der letzten
+  Abfrage vor der Abfahrt; lag diese mehr als 2 Minuten zurück, etwa wegen eines
+  WLAN-Ausfalls, zählt die Abfahrt nicht. Ausfälle fehlen in den Daten. Tram und Bus werden
+  nicht gezählt, in der Ruhezeit nichts.
+- **Anzeige & System:** Berührungen heute und diese Woche, die Stunde mit der meisten
+  Nutzung, was angetippt wird (Restaurants, Tram & Bus, Tagesmenüs, Wege, Look, Hilfe und
+  Info, Statistik, Filter) und die beliebtesten Lokale (Tagesmenü oder Weg angesehen).
+  Berührungen in der Karte von Google zählen nicht, weil sie eine eigene Seite ist. Dazu
+  der Zustand des Pi: Laufzeit, Temperaturbereich heute, unerwartete Neustarts von Chromium
+  (Abstürze und Eingriffe des Wächters, ohne den täglichen), WLAN-Unterbrüche ab 3 Minuten
+  und der Anteil erfolgreicher Abfragen. Diese Werte liefert `kiosk.sh` mit den Messwerten
+  des Ressourcen-Monitors; Neustarts und Unterbrüche liest es alle 5 Minuten aus seinem
+  Protokoll.
+
+Die App zählt selbst und legt die Summen pro Tag im Profil von Chromium ab
+(`localStorage`). Damit die SD-Karte geschont wird, schreibt sie höchstens alle 30 Minuten
+(`saveMin`), dazu beim Beginn der Ruhezeit. Stürzt Chromium ab, fehlen also höchstens die
+letzten 30 Minuten. Aufbewahrt werden 28 Tage (`keepDays`). Mit einem neuen Profil beginnt
+die Statistik neu. Eingestellt wird das im Block `statistics` des `CONFIG`;
+`enabled: false` blendet die Kachel aus.
+
 ### Ruhezeit
 
 Jede Nacht von 00:00 bis 05:00 Uhr und den ganzen Samstag und Sonntag ruht die
