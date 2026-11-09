@@ -18,12 +18,12 @@
 #   2026"), darunter Zeilen wie "Menu 1", "Vegimenu" oder "Tagespizza", je gefolgt von
 #   Gericht, Beschreibung, "Vorspeise: …" und Preis ("CHF 21.50").
 # - Eine Woche als Tabelle (Migros): links untereinander Wochentag und Datum ("Montag",
-#   "9. November"), darüber die Spaltenköpfe; in jeder Zelle Gericht, Beilagen, Preis
-#   ("14.50") und Herkunft ("Fleisch: Schweiz"). Sind die Spaltenköpfe grosse Titel (seit
-#   KW 46: "Mittagsmenü", "Buffet …", "Selbstwahlbuffet"), zählen nur Spalten mit einem
-#   Preis pro Tag, also das Mittagsmenü. Dazu kommen die "Klassiker" der Woche (rechts unter
-#   dem gleichnamigen Titel, je "- Gericht" und Beilagen, ohne Preis) an jeden Tag.
-#   Was weder unter einem Spaltenkopf noch neben einem Tag steht, bleibt weg.
+#   "9. November"), darüber grosse Titel als Spaltenköpfe ("Mittagsmenü", "Buffet …",
+#   "Selbstwahlbuffet"); gelesen werden nur Spalten mit einem Preis pro Tag, also das
+#   Mittagsmenü: Gericht, Beilagen, Preis ("14.50") und Herkunft ("Fleisch: Schweiz").
+#   Dazu kommen die "Klassiker" der Woche (rechts unter dem gleichnamigen Titel, je
+#   "- Gericht" und Beilagen, ohne Preis) an jeden Tag. Was weder unter einem Spaltenkopf
+#   noch neben einem Tag steht, bleibt weg.
 # Wochentag und Datum müssen zusammenpassen, sonst wird der Tag übersprungen. Die PDFs
 # kommen aus dem Netz: Alle Grössen sind begrenzt, und menu.js enthält nur Text, der mit
 # json.dumps geschrieben ist, nie Programmcode.
@@ -611,7 +611,7 @@ def read_items(lines):
 
 
 def read_cell(label, lines):
-    """Eine Zelle der Wochentabelle: Gericht, Beilagen, Preis, Zusätze und Herkunft."""
+    """Eine Zelle der Wochentabelle: Gericht, Beilagen, Preis und Herkunft."""
     lines = [line for line in lines if line]
     if not lines:
         return None
@@ -620,7 +620,7 @@ def read_cell(label, lines):
     for line in lines[1:]:
         if PRICE.match(line) or PRICE_ONLY.fullmatch(line):
             item['price'] = clip(line if PRICE.match(line) else 'CHF ' + line, 40)
-        elif ORIGIN.match(line) or line.startswith('+'):
+        elif ORIGIN.match(line):
             extra.append(clip(line))
         else:
             sides.append(line)
@@ -636,19 +636,13 @@ def read_table(segs, today):
     if len(days) < 2:
         return {}
     first, size = days[0], days[0]['size']
-    # Spaltenköpfe: die grossen Titel über dem ersten Tag (Migros seit KW 46: «Mittagsmenü»,
-    # «Buffet …», «Selbstwahlbuffet»), sonst die nächste Zeile darüber; je rechts der Tagesspalte
-    above = [s for s in segs if s['y'] > first['y'] + 0.5 * size and s['x'] > first['x'] + 2 * size]
-    if not above:
+    # Spaltenköpfe: die grossen Titel über dem ersten Tag, rechts der Tagesspalte («Mittagsmenü»,
+    # «Buffet …», «Selbstwahlbuffet»). Gelesen werden davon nur die Spalten mit einem Preis pro
+    # Tag; das Buffet hat keinen.
+    heads = sorted((s for s in segs if s['y'] > first['y'] + 0.5 * size and s['x'] > first['x'] + 2 * size
+                    and s['size'] >= TITLE_SIZE * size), key=lambda s: s['x'])
+    if not heads:
         return {}
-    titles = [s for s in above if s['size'] >= TITLE_SIZE * size]
-    if titles:
-        heads = sorted(titles, key=lambda s: s['x'])
-        priced_only = True       # nur Spalten mit Preis pro Tag (das Buffet hat keinen)
-    else:
-        top = min(s['y'] for s in above)
-        heads = sorted((s for s in above if abs(s['y'] - top) < 0.5 * s['size']), key=lambda s: s['x'])
-        priced_only = False
     widths = [b['x'] - a['x'] for a, b in zip(heads, heads[1:])] or [heads[0]['x'] - first['x']]
     reach = 0.4 * min(widths)
 
@@ -672,7 +666,7 @@ def read_table(segs, today):
         items = []
         for head in heads:
             cell = [s['text'] for s in sorted(inside, key=lambda s: -s['y']) if head_of(s) is head]
-            if priced_only and not any(PRICE.match(t) or PRICE_ONLY.fullmatch(t) for t in cell):
+            if not any(PRICE.match(t) or PRICE_ONLY.fullmatch(t) for t in cell):
                 continue
             item = read_cell(head['text'], cell)
             if item:
