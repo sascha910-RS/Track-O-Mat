@@ -711,13 +711,14 @@ dieser Uhrzeit (14:00 bzw. 13:45) und um Mitternacht von selbst.
 | Lokal | Quelle | Was erscheint |
 |---|---|---|
 | Pizza Züri | PDF auf pizzazueri.ch, eine Seite pro Tag, meist Dienstag bis Freitag im Voraus | Menu 1, Menu 2, Vegimenu, Tagespizza; eine gemeinsame Vorspeise einmal am Schluss |
-| Migros Restaurant | Wochenpläne der Migros Zürich als PDF, verlinkt auf gastro.migros.ch (aktuelle Woche und Folgewoche) | Mittagsmenü und Grill-Combo mit Beilagen, Preis und Herkunft |
+| Migros Restaurant | Wochenpläne der Migros Zürich als PDF, verlinkt auf gastro.migros.ch (aktuelle Woche und Folgewoche) | Mittagsmenü mit Beilagen, Preis und Herkunft; dazu die Klassiker der Woche mit Beilagen, ohne Preis |
 | UBS Key West | Wochenplan der ZFV auf app.food2050.ch (auf zfv.ch eingebettet), eine Webseite statt eines PDFs, aktuelle Woche | Urban, Traditional, Global, Soul Food Veggie und Soul Food mit Beilagen und dem Hinweis «vegan» bzw. «vegetarisch»; ohne Preise, die Seite nennt keine |
 
 Der Menüplan der Migros gilt für alle ihre Restaurants in Zürich; nicht jedes bietet alle
-Menüs an, das steht auch klein unter dem Menü. Das vegetarische Buffet, die «Klassiker»
-und der «Dessert-Hit» stehen im Plan ohne Bezug zu einem Tag und erscheinen deshalb
-nicht.
+Menüs an, das steht auch klein unter dem Menü. Seit KW 46 hat der Plan einen neuen
+Aufbau: Mittagsmenü, Buffet, Selbstwahlbuffet, Klassiker und Dessert-Hit. Die Anzeige
+zeigt pro Tag das Mittagsmenü mit Preis und die Klassiker, die die ganze Woche gelten,
+ohne Preis. Buffet, Selbstwahlbuffet und Dessert-Hit erscheinen nicht.
 
 `kiosk.sh` lädt die PDFs beim Start und fragt danach einmal pro Stunde (`MENU_INTERVAL`)
 nach, ob sich etwas geändert hat; unveränderte PDFs schickt der Server nicht noch einmal.

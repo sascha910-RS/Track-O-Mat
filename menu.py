@@ -18,8 +18,11 @@
 #   2026"), darunter Zeilen wie "Menu 1", "Vegimenu" oder "Tagespizza", je gefolgt von
 #   Gericht, Beschreibung, "Vorspeise: …" und Preis ("CHF 21.50").
 # - Eine Woche als Tabelle (Migros): links untereinander Wochentag und Datum ("Montag",
-#   "19. Oktober"), darüber eine Zeile mit den Spaltenköpfen ("Mittagsmenü", "Grill-Combo");
-#   in jeder Zelle Gericht, Beilagen, Preis ("20.50") und Herkunft ("Fleisch: Schweiz").
+#   "9. November"), darüber die Spaltenköpfe; in jeder Zelle Gericht, Beilagen, Preis
+#   ("14.50") und Herkunft ("Fleisch: Schweiz"). Sind die Spaltenköpfe grosse Titel (seit
+#   KW 46: "Mittagsmenü", "Buffet …", "Selbstwahlbuffet"), zählen nur Spalten mit einem
+#   Preis pro Tag, also das Mittagsmenü. Dazu kommen die "Klassiker" der Woche (rechts unter
+#   dem gleichnamigen Titel, je "- Gericht" und Beilagen, ohne Preis) an jeden Tag.
 #   Was weder unter einem Spaltenkopf noch neben einem Tag steht, bleibt weg.
 # Wochentag und Datum müssen zusammenpassen, sonst wird der Tag übersprungen. Die PDFs
 # kommen aus dem Netz: Alle Grössen sind begrenzt, und menu.js enthält nur Text, der mit
@@ -555,6 +558,7 @@ FOOTER = re.compile(r'(zusätzliche|wir verwenden|gerne informieren)', re.I)
 DAYDATE = re.compile(r'(\d{1,2})\s*\.\s*(?:(\d{1,2})\s*\.|(%s)\b)\s*(\d{4})?' % '|'.join(MONTHS), re.I)
 PRICE_ONLY = re.compile(r'\d{1,3}[.,]\d{2}')
 ORIGIN = re.compile(r'[A-ZÄÖÜ][a-zäöüA-Z-]*:\s')                # "Fleisch: Schweiz"
+TITLE_SIZE = 1.6                 # grosser Titel: mindestens so viel grösser als die Wochentage
 
 
 def clip(text, size=160):
@@ -632,12 +636,19 @@ def read_table(segs, today):
     if len(days) < 2:
         return {}
     first, size = days[0], days[0]['size']
-    # Spaltenköpfe: die nächste Zeile über dem ersten Tag, rechts der Tagesspalte
+    # Spaltenköpfe: die grossen Titel über dem ersten Tag (Migros seit KW 46: «Mittagsmenü»,
+    # «Buffet …», «Selbstwahlbuffet»), sonst die nächste Zeile darüber; je rechts der Tagesspalte
     above = [s for s in segs if s['y'] > first['y'] + 0.5 * size and s['x'] > first['x'] + 2 * size]
     if not above:
         return {}
-    top = min(s['y'] for s in above)
-    heads = sorted((s for s in above if abs(s['y'] - top) < 0.5 * s['size']), key=lambda s: s['x'])
+    titles = [s for s in above if s['size'] >= TITLE_SIZE * size]
+    if titles:
+        heads = sorted(titles, key=lambda s: s['x'])
+        priced_only = True       # nur Spalten mit Preis pro Tag (das Buffet hat keinen)
+    else:
+        top = min(s['y'] for s in above)
+        heads = sorted((s for s in above if abs(s['y'] - top) < 0.5 * s['size']), key=lambda s: s['x'])
+        priced_only = False
     widths = [b['x'] - a['x'] for a, b in zip(heads, heads[1:])] or [heads[0]['x'] - first['x']]
     reach = 0.4 * min(widths)
 
@@ -645,6 +656,7 @@ def read_table(segs, today):
         best = min(heads, key=lambda h: abs(h['x'] - seg['x']))
         return best if abs(best['x'] - seg['x']) < reach else None
 
+    extras = read_extras(segs, size)
     out = {}
     for i, day in enumerate(days):
         upper = day['y'] + 0.5 * day['size']
@@ -655,15 +667,44 @@ def read_table(segs, today):
         date = m and make_date(day['text'], m.group(1), m.group(2) or m.group(3), m.group(4), today)
         if not date or date.isoformat() in out:
             continue
+        # Datum unter dem Wochentag und Fusszeile am linken Rand gehören zu keiner Spalte
+        inside = [s for s in inside if s['x'] > day['x'] + 2 * day['size']]
         items = []
         for head in heads:
             cell = [s['text'] for s in sorted(inside, key=lambda s: -s['y']) if head_of(s) is head]
+            if priced_only and not any(PRICE.match(t) or PRICE_ONLY.fullmatch(t) for t in cell):
+                continue
             item = read_cell(head['text'], cell)
             if item:
                 items.append(item)
         if items:
-            out[date.isoformat()] = items[:8]
+            out[date.isoformat()] = (items + extras)[:8]
     return out
+
+
+def read_extras(segs, size):
+    """Angebote, die die ganze Woche gelten, unter dem grossen Titel «Klassiker»: jede Zeile
+    «- Gericht» beginnt eines, die eingerückten Zeilen darunter sind seine Beilagen. Hinweise
+    («Täglich bis Ladenschluss …») bleiben weg, ebenso der Preis (es steht keiner dabei).
+    Der Block endet beim nächsten grossen Titel."""
+    head = next((s for s in segs if s['text'].strip().lower() == 'klassiker' and s['size'] >= TITLE_SIZE * size), None)
+    if not head:
+        return []
+    below = [s for s in segs if s['y'] < head['y'] and s['size'] >= TITLE_SIZE * size and abs(s['x'] - head['x']) < 2 * size]
+    end = max((s['y'] for s in below), default=-1e9)
+    block = sorted((s for s in segs if end < s['y'] < head['y'] and head['x'] - size < s['x'] < head['x'] + 30 * size),
+                   key=lambda s: -s['y'])
+    items, item = [], None
+    for s in block:
+        text = s['text'].strip()
+        if text.startswith('-'):
+            item = {'label': 'Klassiker', 'name': clip(text.lstrip('- ').strip()), 'desc': [], 'starter': '', 'price': ''}
+            items.append(item)
+        elif item and s['x'] > head['x'] + 0.5 * size:     # eingerückt: Beilagen des Gerichts darüber
+            item['desc'] = [clip(', '.join(item['desc'] + [text]))]
+        else:
+            item = None                                     # Hinweis: gehört zu keinem Gericht
+    return [i for i in items if i['name']][:5]
 
 
 def read_pdf(path, today):
