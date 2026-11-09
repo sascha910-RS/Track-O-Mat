@@ -491,6 +491,9 @@
   .m-name { font-size: 23px; line-height: 29px; font-weight: 600; }
   .m-desc { font-size: 18px; line-height: 24px; color: var(--muted); }
   .m-price { font-size: 21px; white-space: nowrap; }
+  /* Gerichte mit derselben Bezeichnung: ohne Trennlinie dazwischen, enger untereinander */
+  .m-item.m-joined { border-bottom: 0; padding-bottom: 5px; }
+  .m-item.m-cont { padding-top: 5px; }
   /* Ressourcen-Monitor: "CPU ▬▬▬ 23 %   RAM ▬▬▬ 1,2 / 3,7 GB" */
   #info-sys { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
   .meter { display: inline-block; width: 44px; height: 12px; background: var(--line); }
@@ -915,6 +918,7 @@
   }
   html.comic .row.pressed .cpanel { background: var(--c-mint); }
   html.comic .m-item { border-bottom: 2px dashed var(--c-text); }
+  html.comic .m-item.m-joined { border-bottom: 0; }
   html.comic .m-label { font: 25px/28px var(--f-comic); letter-spacing: 1px; text-transform: uppercase; color: var(--c-red); }
   html.comic .m-name { font: 18px/26px var(--f-fat); }
   html.comic .m-desc { color: var(--c-text); opacity: 0.8; }
@@ -2949,10 +2953,21 @@
       starter = starter || String(it.starter);
       withStarter.push(String(it.label));
     });
+    // Folgen Gerichte mit derselben Bezeichnung aufeinander (die drei «Klassiker» der Migros),
+    // steht sie nur beim ersten, und die Gerichte stehen ohne Trennlinie untereinander
+    var prevRow = null, prevLabel = null;
     items.forEach(function (it) {
-      var lines = (Array.isArray(it.desc) ? it.desc : []).map(String);
+      var lines = (Array.isArray(it.desc) ? it.desc : []).map(String), label = String(it.label || '');
       if (it.starter && !same) lines.push('Vorspeise: ' + it.starter);
-      frag.appendChild(menuRow(String(it.label || ''), String(it.name || ''), lines, String(it.price || '')));
+      var same_ = prevRow && label && label === prevLabel;
+      var row = menuRow(same_ ? '' : label, String(it.name || ''), lines, String(it.price || ''));
+      if (same_) {
+        prevRow.classList.add('m-joined');
+        row.classList.add('m-cont');
+      }
+      frag.appendChild(row);
+      prevRow = row;
+      prevLabel = label;
     });
     if (starter && same) {
       frag.appendChild(menuRow('Vorspeise', starter,
