@@ -513,6 +513,14 @@ Schlieren, Glanzenberg» (`nextStops`, `0` = aus). «Zürich» am Anfang eines H
 fällt dort weg (`stopPrefix`), aus «Zürich HB» wird «HB». Hält ein Zug bis zum Ziel
 nirgends, steht «ohne Zwischenhalt».
 
+**Schaffst du's noch?** Unter dem Countdown steht, ob man die Abfahrt vom VZA1 aus noch
+erreicht. Gerechnet wird mit der Gehzeit zum Gleis (`walkMin`, 3 Minuten) bzw. zur
+Haltestelle (`walkMin` in `local.stops`: Bahnhof Altstetten 4, Altstetten Nord
+2 Minuten). Bleiben nach der Gehzeit 2 bis 4 Minuten Reserve, steht «gemütlich» (grün),
+bei 0 bis 2 «zügig», fehlt höchstens die halbe Gehzeit (rennend geht es etwa doppelt so
+schnell) «rennen :-)» (rot), sonst «vergiss es :-(» (grau). Bei mehr Reserve steht nichts.
+Die Texte stehen in `walkTexts`; `walkMin: 0` schaltet die Hinweise ab.
+
 Oben rechts steht unter dem Datum die Aussentemperatur in ganzen Graden, im Comic-Look
 als Aufkleber neben der Uhrzeit. Sie stammt von der Messstation Zürich / Affoltern von
 MeteoSchweiz (offene Daten, 4.6 km entfernt und auf ähnlicher Höhe; Altstetten selbst hat
@@ -599,7 +607,8 @@ Comic-Look. Die Wahl bleibt gespeichert, auch über einen Neustart; `defaultLook
 ändert den Look nicht.
 
 Im Comic-Look steht der nächste Zug gross als «Tagesspecial» über der Liste, mit der
-Restzeit im Stern; ab `runMin` Minuten heisst es dort «Min! Los!». Verspätungen stehen in
+Restzeit im Stern; darunter kurz, ob man es noch schafft («Min! Zügig», «Min! Renn!»,
+«Zu spät!», siehe «Schaffst du's noch?»). Verspätungen stehen in
 schwarzen Kästchen, eine Gleisänderung ist rot hinterlegt. Statt der Bahnhofsuhr läuft
 eine Donut-Uhr mit der Uhrzeit als Aufkleber. Weil das Tagesspecial Platz braucht, zeigt
 die Liste je nach Bildschirm gleich viele Abfahrten oder eine weniger (Format 3:4:

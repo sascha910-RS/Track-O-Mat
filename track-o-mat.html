@@ -228,6 +228,11 @@
     line-height: 19px;
     color: var(--accent);
   }
+  /* «Schaffst du's noch?»: gemütlich, zügig, rennen, vergiss es */
+  .run.w0 { color: var(--ok); }
+  .run.w1 { color: var(--text); }
+  .run.w2 { color: var(--accent); }
+  .run.w3 { color: var(--muted); font-weight: 400; }
   .badge {
     display: inline-block;
     min-width: 68px;
@@ -1071,6 +1076,7 @@
       <div class="legend only-local-cfg"><div><span class="badge k-bus">80</span></div><div>Bus</div></div>
       <div class="legend"><div><span class="delay">+3'</span></div><div>Verspätung in Minuten, unter der planmässigen Abfahrtszeit</div></div>
       <div class="legend"><div><span class="sample-in">in 5 min</span></div><div>Zeit bis zur tatsächlichen Abfahrt (inkl. Verspätung)</div></div>
+      <div class="legend"><div><span class="run w2">rennen :-)</span></div><div>Schaffst du's vom VZA1 aus? «gemütlich», «zügig», «rennen» oder «vergiss es», je nach Gehzeit</div></div>
       <div class="legend"><div><span class="platform changed">4</span></div><div>Gleis- oder Kantenänderung – die Abfahrt ist hier</div></div>
       <div class="legend"><div><span class="sample-tile">Filter</span></div><div>Rote Kachel = aktiver Filter</div></div>
       <div class="legend only-places only-route"><div><span class="c-dist route" id="legend-route"></span></div><div id="legend-route-text"></div></div>
@@ -1176,8 +1182,13 @@
     maxRows: 0,                                   // Anzahl Zeilen; 0 = so viele, wie bei rowHeight Platz haben
     rowHeight: 58,                                // Mindesthöhe einer Zeile in Layout-Pixeln (bei maxRows: 0)
     minDelayMin: 1,                               // Verspätung ab … Minuten anzeigen
-    runMin: 3,                                    // bis … Minuten vor tatsächlicher Abfahrt (inkl. Verspätung) Hinweis zeigen (0 = aus)
-    runText: 'rennen :-)',
+    // «Schaffst du's noch?»: Hinweis unter dem Countdown nach der Gehzeit vom Standort (VZA1) zum
+    // Gleis (walkMin; für Tram und Bus je Haltestelle in local.stops). Reserve = Minuten bis zur
+    // tatsächlichen Abfahrt minus Gehzeit: ab 4 kein Hinweis, ab 2 der erste Text, ab 0 der
+    // zweite, bis zur halben Gehzeit zu wenig der dritte (rennend geht es etwa doppelt so
+    // schnell), darunter der vierte.
+    walkMin: 3,                                   // Minuten zu Fuss vom VZA1 zu den Gleisen (0 = keine Hinweise)
+    walkTexts: ['gemütlich', 'zügig', 'rennen :-)', 'vergiss es :-('],
     nextStops: 2,                                 // so viele nächste Halte klein unter dem Ziel (0 = aus)
     stopPrefix: 'Zürich ',                        // fällt dort am Anfang eines Haltenamens weg ("Zürich HB" -> "HB")
     idleResetSec: 120,                            // ohne Berührung zurück auf Standardfilter (0 = aus)
@@ -1310,10 +1321,11 @@
       enabled: true,                              // false = Knopf ausblenden
       title: 'Tram und Bus ab Bahnhof Altstetten und Altstetten Nord',
       // Haltestellen: id aus transport.opendata.ch (/v1/locations?query=…), name für Hilfe und
-      // Info, tag steht klein bei der Kante ('' = nichts), limit = so viele Abfahrten holen
+      // Info, tag steht klein bei der Kante ('' = nichts), limit = so viele Abfahrten holen,
+      // walkMin = Minuten zu Fuss vom VZA1 dorthin (für «Schaffst du's noch?»)
       stops: [
-        { id: '8591056', name: 'Bahnhof Altstetten', tag: '', limit: 150 },
-        { id: '8591057', name: 'Bahnhof Altstetten Nord', tag: 'Nord', limit: 80 }
+        { id: '8591056', name: 'Bahnhof Altstetten', tag: '', limit: 150, walkMin: 4 },        // Südseite, durch die Unterführung
+        { id: '8591057', name: 'Bahnhof Altstetten Nord', tag: 'Nord', limit: 80, walkMin: 2 }
       ],
       tramCategories: ['T', 'TN'],
       busCategories: ['B', 'BN'],                 // BN = Nachtbus (N1, N12 …)
@@ -1535,6 +1547,7 @@
       key: (j.name || line) + '|' + planned + '|' + to + '|' + (src.id || ''),
       line: line || '?', kind: kind, to: cfg.shortTo ? shortName(to, cfg.prefixes) : to,
       planned: planned, real: real, delay: delay, tag: src.tag || '',
+      walk: typeof src.walkMin === 'number' ? src.walkMin : CONFIG.walkMin,
       platform: now, platformChanged: changed, stops: stops, via: via
     };
   }
@@ -1572,9 +1585,17 @@
     return 'in ' + Math.ceil(diff / 60000) + ' min';
   }
 
-  // Hinweis unter dem Countdown, wenn der Zug in höchstens runMin Minuten fährt
-  function runText(e, now) {
-    return CONFIG.runMin > 0 && Math.ceil((e.real - now) / 60000) <= CONFIG.runMin ? CONFIG.runText : '';
+  // «Schaffst du's noch?»: Stufe 0–3 (gemütlich, zügig, rennen, vergiss es) aus der Reserve,
+  // also Minuten bis zur tatsächlichen Abfahrt minus Gehzeit; -1 = kein Hinweis
+  function walkLevel(e, now) {
+    var w = e.walk;
+    if (!(w > 0) || !CONFIG.walkTexts) return -1;
+    var slack = (e.real - now) / 60000 - w;
+    return slack >= 4 ? -1 : slack >= 2 ? 0 : slack >= 0 ? 1 : slack >= -w / 2 ? 2 : 3;
+  }
+  function walkText(e, now) {
+    var k = walkLevel(e, now);
+    return k < 0 ? '' : CONFIG.walkTexts[k] || '';
   }
 
   /* ---------- Darstellung ---------- */
@@ -1612,7 +1633,7 @@
 
       var cIn = el('div', 'c-in');
       var inEl = el('div', null, countdownText(e, now));
-      var runEl = el('div', 'run', runText(e, now));
+      var runEl = el('div', 'run w' + walkLevel(e, now), walkText(e, now));
       cIn.appendChild(inEl);
       cIn.appendChild(runEl);
       row.appendChild(cIn);
@@ -1693,7 +1714,7 @@
     return row;
   }
 
-  // Der nächste Zug gross, mit der Restzeit im Stern. Ab runMin Minuten heisst es «Min! Los!».
+  // Der nächste Zug gross, mit der Restzeit im Stern und dem Hinweis, ob man es noch schafft.
   function renderHero(b, e, now) {
     var hero = $('hero');
     hero.classList.toggle('off', !e);
@@ -1714,10 +1735,12 @@
     if (e.via) { sub.appendChild(el('span', null, '·')); sub.appendChild(el('span', 'h-via', e.via)); }
     $('hero-sub').replaceChildren(sub);
 
-    var soon = e.real - now < 45000, mins = Math.ceil((e.real - now) / 60000);
+    // Im Stern: «Schaffst du's noch?» kurz gefasst (gemütlich und ohne Hinweis: nur «Min»)
+    var soon = e.real - now < 45000, mins = Math.ceil((e.real - now) / 60000), k = walkLevel(e, now);
     $('burst-num').textContent = soon ? 'Jetzt' : mins;
     $('burst-num').classList.toggle('word', soon || mins > 99);
-    $('burst-text').textContent = soon ? 'Los!' : CONFIG.runMin > 0 && mins <= CONFIG.runMin ? 'Min! Los!' : 'Min';
+    $('burst-text').textContent = k === 3 ? (soon ? 'Zu spät!' : 'Min! Zu spät') : soon ? 'Los!'
+      : k === 2 ? 'Min! Renn!' : k === 1 ? 'Min! Zügig' : 'Min';
   }
 
   // Zackenstern hinter der Restzeit (einmal beim Start gezeichnet)
@@ -1749,8 +1772,9 @@
     for (var i = 0; i < shown.length; i++) {
       var t = countdownText(shown[i].entry, now);
       if (shown[i].inEl.textContent !== t) shown[i].inEl.textContent = t;
-      var r = runText(shown[i].entry, now);
+      var r = walkText(shown[i].entry, now), rc = 'run w' + walkLevel(shown[i].entry, now);
       if (shown[i].runEl.textContent !== r) shown[i].runEl.textContent = r;
+      if (shown[i].runEl.className !== rc) shown[i].runEl.className = rc;
     }
   }
 
