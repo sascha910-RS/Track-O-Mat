@@ -701,6 +701,18 @@
   #donut .dough { fill: var(--c-dough); }
   #donut .glaze { fill: var(--c-glaze); }
   #donut .sprinkle { stroke-width: 2.6; stroke-linecap: round; }
+  /* Donut anknabbern: Bissen, Krümel, Nachschub */
+  #donut .bite-ink circle { fill: none; stroke: var(--c-line); stroke-width: 4.4; }
+  #donut .bite-fill circle { fill: var(--c-red); }
+  #donut .crumb { fill: var(--c-dough); stroke: var(--c-line); stroke-width: 1.2; }
+  #donut-crumbs { display: none; }
+  #donut.eaten #donut-body { display: none; }
+  #donut.eaten #donut-crumbs { display: inline; }
+  #donut-body { transform-box: view-box; transform-origin: 50px 50px; transition: transform 0.08s; }
+  html.comic #clock.pressed #donut-body { transform: scale(0.94); }
+  #donut-body.roll-in { animation: donut-roll 0.9s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+  @keyframes donut-roll { from { transform: translateX(110px) rotate(320deg); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { #donut-body.roll-in { animation: none; } }
 
   /* ---------- Liste ---------- */
   html.comic .section-label { display: none; }
@@ -967,7 +979,7 @@
     <div id="c-presenter" class="only-comic"></div>
     <div id="c-title" class="only-comic"></div>
     <div id="c-pill" class="only-comic"></div>
-    <div id="clock">
+    <div id="clock" data-action="donut">
       <svg id="clock-face" viewBox="0 0 100 100">
         <g id="face-classic" class="only-classic"><circle cx="50" cy="50" r="49"/></g>
         <g id="donut" class="only-comic"></g>
@@ -1821,16 +1833,31 @@
   // Donut-Uhr des Comic-Looks: rote Scheibe, Teigring, Glasur mit gewelltem Rand, Streusel.
   // Die Zeiger sind dieselben Elemente wie bei der Bahnhofsuhr, nur anders gestaltet.
   function buildDonut() {
-    var g = $('donut'), ns = 'http://www.w3.org/2000/svg';
+    var g = $('donut'), ns = 'http://www.w3.org/2000/svg', parent = g;
     function add(tag, cls, attrs) {
       var n = document.createElementNS(ns, tag);
-      n.setAttribute('class', cls);
+      if (cls) n.setAttribute('class', cls);
       for (var k in attrs) n.setAttribute(k, attrs[k]);
-      g.appendChild(n);
+      parent.appendChild(n);
       return n;
     }
+    // Bissen werden auf den Donut beschnitten, damit ihr Umriss nicht auf den Teller ragt
+    var defs = document.createElementNS(ns, 'defs'), clip = document.createElementNS(ns, 'clipPath'), cc = document.createElementNS(ns, 'circle');
+    clip.setAttribute('id', 'donut-bite-clip');
+    cc.setAttribute('cx', 50); cc.setAttribute('cy', 50); cc.setAttribute('r', 39.3);
+    clip.appendChild(cc); defs.appendChild(clip); $('clock-face').insertBefore(defs, $('clock-face').firstChild);
+
     add('circle', 'shadow', { cx: 53, cy: 53, r: 46 });
     add('circle', 'disc ink', { cx: 50, cy: 50, r: 46, 'stroke-width': 3.5 });
+    // Krümel: erscheinen, wenn der Donut aufgegessen ist
+    parent = add('g', '', { id: 'donut-crumbs' });
+    [[15, 30, 3.2], [62, 20, 2.4], [118, 33, 3.6], [175, 24, 2.6], [228, 34, 3.0], [292, 27, 2.8], [335, 36, 2.2], [200, 12, 2.0]]
+      .forEach(function (c) {
+        var a = c[0] * Math.PI / 180;
+        add('circle', 'crumb', { cx: (50 + c[1] * Math.cos(a)).toFixed(2), cy: (50 + c[1] * Math.sin(a)).toFixed(2), r: c[2] });
+      });
+    parent = g;
+    parent = add('g', '', { id: 'donut-body' });   // der Donut selbst (Teig, Glasur, Loch, Streusel, Bissen)
     add('circle', 'dough ink', { cx: 50, cy: 50, r: 38, 'stroke-width': 2.5 });
     // Glasur: Kreis mit 14 Wellen
     var d = '', waves = 14;
@@ -1850,6 +1877,51 @@
         x2: (x + 2.6 * Math.cos(t)).toFixed(2), y2: (y + 2.6 * Math.sin(t)).toFixed(2), stroke: sp[3]
       });
     });
+    // Bissen in zwei Ebenen: erst alle Kreise mit dickem Umriss, darüber dieselben Kreise nur
+    // gefüllt. So bleibt nur der äussere Umriss stehen, ohne Linien zwischen den Kreisen.
+    add('g', 'bite-ink', { id: 'donut-bite-ink', 'clip-path': 'url(#donut-bite-clip)' });
+    add('g', 'bite-fill', { id: 'donut-bite-fill', 'clip-path': 'url(#donut-bite-clip)' });
+  }
+
+  /* ---------- Donut anknabbern (Comic-Look) ---------- */
+  // Jedes Antippen der Donut-Uhr nimmt einen Bissen. Nach dem letzten ist der Donut weg, auf
+  // dem Aufkleber steht kurz «Nachschub!», dann rollt ein neuer herein. Nach idleResetSec ohne
+  // Berührung ist er wieder ganz.
+  var BITE_ANGLES = [-40, 35, 150, 215, 95];   // Grad, 0 = rechts, im Uhrzeigersinn
+  var bites = 0, donutTimer = 0;
+
+  function biteDonut() {
+    if (look !== 'comic' || bites >= BITE_ANGLES.length) return;
+    var ns = 'http://www.w3.org/2000/svg', a0 = BITE_ANGLES[bites++];
+    [-9, 0, 9].forEach(function (k) {             // drei Zahnabdrücke nebeneinander
+      var a = (a0 + k) * Math.PI / 180;
+      ['donut-bite-ink', 'donut-bite-fill'].forEach(function (id) {
+        var c = document.createElementNS(ns, 'circle');
+        c.setAttribute('cx', (50 + 40 * Math.cos(a)).toFixed(2));
+        c.setAttribute('cy', (50 + 40 * Math.sin(a)).toFixed(2));
+        c.setAttribute('r', 8.5);
+        $(id).appendChild(c);
+      });
+    });
+    tallyUse('donut');
+    if (bites === BITE_ANGLES.length) {
+      $('donut').classList.add('eaten');
+      $('clock-sticker').textContent = 'Nachschub!';
+      donutTimer = setTimeout(function () { refillDonut(true); }, 2600);
+    }
+  }
+
+  // Neuer, ganzer Donut; roll = er rollt sichtbar herein
+  function refillDonut(roll) {
+    clearTimeout(donutTimer);
+    bites = 0;
+    $('donut-bite-ink').replaceChildren();
+    $('donut-bite-fill').replaceChildren();
+    $('donut').classList.remove('eaten');
+    var body = $('donut-body');
+    body.classList.remove('roll-in');
+    if (roll) { void body.getBoundingClientRect(); body.classList.add('roll-in'); }
+    $('clock-sticker').textContent = hhmm(Date.now());
   }
 
   // Stellt die Zeiger und startet den Umlauf des Sekundenzeigers. Wie beim Original
@@ -2382,7 +2454,7 @@
 
   var TALLY_EVENTS = [['view-food', 'Restaurants'], ['view-local', 'Tram & Bus'], ['menu', 'Tagesmenü angesehen'],
                       ['route', 'Weg angezeigt'], ['look', 'Look gewechselt'], ['help', 'Hilfe oder Info'],
-                      ['statistik', 'Statistik'], ['filter', 'Filter gewählt']];
+                      ['statistik', 'Statistik'], ['filter', 'Filter gewählt'], ['donut', 'Donut angeknabbert']];
 
   // Seite «Anzeige & System»: Nutzung (heute und diese Woche) und Zustand des Pi
   function tallyUsePage(box, now) {
@@ -3052,6 +3124,7 @@
     else if (action === 'route') { openRoute(target); if (routeOpen) tallyUse('route', target.getAttribute('data-name')); }
     else if (action === 'route-close') closeRoute();
     else if (action === 'statistik') { openOverlay('statistik'); tallyUse('statistik'); }
+    else if (action === 'donut') biteDonut();
     else if (action === 'statistik-tab') { tallyTab = target.getAttribute('data-tab') === 'use' ? 'use' : 'trains'; renderTally(); }
   }
 
@@ -3153,6 +3226,7 @@
     if (CONFIG.idleResetSec > 0 && now - lastTouchAt >= CONFIG.idleResetSec * 1000) {
       lastTouchAt = now;
       closeRoute();
+      if (bites) refillDonut(false);
       if (overlayMode) closeOverlay();
       if (view !== 'trains') setView('trains');
       resetFilters();
